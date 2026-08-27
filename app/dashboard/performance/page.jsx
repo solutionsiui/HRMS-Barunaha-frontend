@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, BellRing, CalendarRange, Search, Star } from "lucide-react";
+import { BarChart3, BellRing, CalendarRange, Star } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
@@ -295,7 +295,6 @@ export default function PerformancePage() {
   const [autoPreview, setAutoPreview] = useState(null);
   const [view, setView] = useState("weekly");
   const [selectedPeriodKey, setSelectedPeriodKey] = useState("ALL");
-  const [employeeSearch, setEmployeeSearch] = useState("");
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState("ALL");
   const [overrideTarget, setOverrideTarget] = useState(null);
   const [overrideScore, setOverrideScore] = useState("3");
@@ -330,13 +329,10 @@ export default function PerformancePage() {
   }, [selectedEmployee, role]);
 
   const availableTargets = useMemo(() => {
-    const filtered = employees
+    return employees
       .filter((item) => item.emp_id !== user?.emp_id)
       .filter((item) => resolveMode(role, roleForEmployee(item)));
-    const query = employeeSearch.trim().toLowerCase();
-    if (!query) return filtered;
-    return filtered.filter((item) => `${item.emp_id} ${item.first_name} ${item.last_name} ${item.department || ""}`.toLowerCase().includes(query));
-  }, [employeeSearch, employees, role, user?.emp_id]);
+  }, [employees, role, user?.emp_id]);
 
   const canSubmit = useMemo(() => canSubmitForm(selectedMode, form), [form, selectedMode]);
   const visibleRatings = useMemo(() => {
@@ -412,6 +408,29 @@ export default function PerformancePage() {
     setAutoPreview(null);
   }, [form.employee_emp_id]);
 
+  function selectRatingEmployee(employeeEmpId) {
+    setAutoPreview(null);
+    setForm((current) => ({
+      ...current,
+      employee_emp_id: employeeEmpId,
+      attendance_score: 3,
+      punctuality_score: 3,
+      behavior_score: 3,
+      task_completion_score: 3,
+      overall_score_single: 3,
+      attendance_comment: "",
+      punctuality_comment: "",
+      behavior_comment: "",
+      task_comment: "",
+      overall_comment: "",
+    }));
+  }
+
+  function closeRateModal() {
+    setShowRate(false);
+    selectRatingEmployee("");
+  }
+
   async function loadAutoScores() {
     if (!form.employee_emp_id) return;
     try {
@@ -448,18 +467,7 @@ export default function PerformancePage() {
         }),
       });
       showToast("Weekly rating submitted");
-      setShowRate(false);
-      setEmployeeSearch("");
-      setAutoPreview(null);
-      setForm((current) => ({
-        ...current,
-        employee_emp_id: "",
-        attendance_comment: "",
-        punctuality_comment: "",
-        behavior_comment: "",
-        task_comment: "",
-        overall_comment: "",
-      }));
+      closeRateModal();
       load();
     } catch (error) {
       showToast(error.message, "error");
@@ -485,7 +493,7 @@ export default function PerformancePage() {
           <h1 className="syne" style={{ fontSize: 28, fontWeight: 800 }}>Weekly Ratings</h1>
           <p style={{ color: "var(--muted)", marginTop: 4 }}>Ratings are submitted for the current week only. Historical views below regroup the same ratings into weekly, monthly, quarterly, half-yearly, and yearly summaries.</p>
         </div>
-        {canRate ? <button className="btn-primary" onClick={() => setShowRate(true)}>Give Weekly Rating</button> : null}
+        {canRate ? <button className="btn-primary" onClick={() => { selectRatingEmployee(""); setShowRate(true); }}>Give Weekly Rating</button> : null}
       </div>
 
       <div className="card" style={{ padding: 18, marginBottom: 20, background: "rgba(245,158,11,0.08)" }}>
@@ -716,10 +724,10 @@ export default function PerformancePage() {
       {showRate ? (
         <Modal
           title="Give Weekly Rating"
-          onClose={() => setShowRate(false)}
+          onClose={closeRateModal}
           footer={
             <>
-              <button className="btn-ghost" onClick={() => setShowRate(false)}>Cancel</button>
+              <button className="btn-ghost" onClick={closeRateModal}>Cancel</button>
               <button className="btn-primary" disabled={!canSubmit} onClick={submitRating}>Submit</button>
             </>
           }
@@ -733,23 +741,11 @@ export default function PerformancePage() {
           </div>
 
           <div className="form-group">
-            <label className="label">Search Employee</label>
-            <div style={{ position: "relative" }}>
-              <Search size={16} style={{ position: "absolute", left: 12, top: 12, color: "var(--muted)" }} />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by employee ID, name, or department" value={employeeSearch} onChange={(event) => setEmployeeSearch(event.target.value)} />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="label">Employee</label>
-            <select className="input" value={form.employee_emp_id} onChange={(event) => setForm((current) => ({ ...current, employee_emp_id: event.target.value }))}>
-              <option value="">Select employee</option>
-              {availableTargets.map((item) => (
-                <option key={item.emp_id} value={item.emp_id}>
-                  {item.emp_id} - {item.first_name} {item.last_name} ({roleForEmployee(item).toUpperCase()})
-                </option>
-              ))}
-            </select>
+            <label className="label">Employee (search by ID, name, or department)</label>
+            <input className="input" list="rating-employee-options" placeholder="Start typing to search…" value={form.employee_emp_id} onChange={(event) => selectRatingEmployee(event.target.value)} />
+            <datalist id="rating-employee-options">
+              {availableTargets.map((item) => <option key={item.emp_id} value={item.emp_id}>{item.first_name} {item.last_name} · {item.department || "No department"} · {roleForEmployee(item).toUpperCase()}</option>)}
+            </datalist>
           </div>
 
           {selectedMode ? (

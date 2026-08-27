@@ -78,6 +78,14 @@ export default function ProfilePage() {
 
   async function uploadProfilePic(file) {
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Select a valid image file", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Profile picture cannot exceed 5MB", "error");
+      return;
+    }
     const formData = new FormData();
     formData.append("file", file);
     try {

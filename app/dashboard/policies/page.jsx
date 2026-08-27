@@ -33,6 +33,8 @@ export default function PoliciesPage() {
   const list = tab === "posh" ? posh : general;
 
   async function createPolicy() {
+    if (!form.title.trim()) return showToast("Policy title is required", "error");
+    if (!form.content.trim()) return showToast("Policy content is required", "error");
     try {
       await apiFetch("/policies/", { method: "POST", body: JSON.stringify(form) });
       showToast("Policy created!");
@@ -43,6 +45,8 @@ export default function PoliciesPage() {
   }
 
   async function updatePolicy() {
+    if (!String(editItem?.title || "").trim()) return showToast("Policy title is required", "error");
+    if (!String(editItem?.content || "").trim()) return showToast("Policy content is required", "error");
     try {
       await apiFetch(`/policies/${editItem.id}`, { method: "PUT", body: JSON.stringify(editItem) });
       showToast("Policy updated!");
@@ -99,17 +103,17 @@ export default function PoliciesPage() {
       {showAdd && (
         <Modal title="Add Policy" onClose={() => setShowAdd(false)}
           footer={<><button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button><button className="btn-primary" onClick={createPolicy}>Create</button></>}>
-          <div className="form-group"><label className="label">Title</label><input className="input" value={form.title} onChange={(e) => setForm((item) => ({ ...item, title: e.target.value }))} /></div>
-          <div className="form-group"><label className="label">Category</label><select className="input" value={form.category} onChange={(e) => setForm((item) => ({ ...item, category: e.target.value }))}><option value="General">General</option><option value="POSH">POSH</option><option value="Leave">Leave</option></select></div>
-          <div className="form-group"><label className="label">Content</label><textarea className="input" rows={6} value={form.content} onChange={(e) => setForm((item) => ({ ...item, content: e.target.value }))} /></div>
+          <div className="form-group"><label className="label">Title <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required value={form.title} onChange={(e) => setForm((item) => ({ ...item, title: e.target.value }))} /></div>
+          <div className="form-group"><label className="label">Category <span style={{ color: "#ef4444" }}>*</span></label><select className="input" required value={form.category} onChange={(e) => setForm((item) => ({ ...item, category: e.target.value }))}><option value="General">General</option><option value="POSH">POSH</option><option value="Leave">Leave</option></select></div>
+          <div className="form-group"><label className="label">Content <span style={{ color: "#ef4444" }}>*</span></label><textarea className="input" required rows={6} value={form.content} onChange={(e) => setForm((item) => ({ ...item, content: e.target.value }))} /></div>
         </Modal>
       )}
       {editItem && (
         <Modal title={`Edit: ${editItem.title}`} onClose={() => setEditItem(null)}
           footer={<><button className="btn-ghost" onClick={() => setEditItem(null)}>Cancel</button><button className="btn-primary" onClick={updatePolicy}>Save</button></>}>
-          <div className="form-group"><label className="label">Title</label><input className="input" value={editItem.title} onChange={(e) => setEditItem((item) => ({ ...item, title: e.target.value }))} /></div>
+          <div className="form-group"><label className="label">Title <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required value={editItem.title} onChange={(e) => setEditItem((item) => ({ ...item, title: e.target.value }))} /></div>
           <div className="form-group"><label className="label">Category</label><select className="input" value={editItem.category} onChange={(e) => setEditItem((item) => ({ ...item, category: e.target.value }))}><option value="General">General</option><option value="POSH">POSH</option><option value="Leave">Leave</option></select></div>
-          <div className="form-group"><label className="label">Content</label><textarea className="input" rows={6} value={editItem.content || ""} onChange={(e) => setEditItem((item) => ({ ...item, content: e.target.value }))} /></div>
+          <div className="form-group"><label className="label">Content <span style={{ color: "#ef4444" }}>*</span></label><textarea className="input" required rows={6} value={editItem.content || ""} onChange={(e) => setEditItem((item) => ({ ...item, content: e.target.value }))} /></div>
         </Modal>
       )}
       {toastNode}

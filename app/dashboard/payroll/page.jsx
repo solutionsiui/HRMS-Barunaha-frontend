@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
-import { fmtINR } from "@/lib/formatters";
+import { fmtDate, fmtDateTime, fmtINR } from "@/lib/formatters";
 import Modal from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 
@@ -269,14 +269,14 @@ export default function PayrollPage() {
               <tbody>
                 {queue.map((item) => (
                   <tr key={`${item.kind}-${item.id}`}>
-                    <td><b>{item.employee_name}</b><div style={{ fontSize: 12, color: "var(--muted)" }}>{item.emp_id}</div></td>
+                    <td><b>{item.employee_name}</b><div style={{ fontSize: 12, color: "var(--muted)" }}>{item.emp_id} · {item.is_active === false ? "Inactive" : "Active"}</div></td>
                     <td>{item.kind === "salary" ? "Salary Change" : "Payroll Update"}</td>
                     <td style={{ maxWidth: 320 }}>
                       {item.proposed_base_salary !== null && item.proposed_base_salary !== undefined ? <div>Base Salary: {fmtINR(item.current_base_salary)} → {fmtINR(item.proposed_base_salary)}</div> : null}
                       {item.proposed_bank_account ? <div>Bank: {item.proposed_bank_account}</div> : null}
                       {item.proposed_ifsc_code ? <div>IFSC: {item.proposed_ifsc_code}</div> : null}
                     </td>
-                    <td>{item.requested_on?.split("T")[0] || "—"}</td>
+                    <td>{fmtDateTime(item.requested_on)}</td>
                     <td>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <button className="btn-primary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => decideRequest(item.kind, item.id, "approve")}>Approve</button>
@@ -376,7 +376,7 @@ export default function PayrollPage() {
                       {showSalary && <td style={{ fontWeight: 600, color: (row.extra_pay_addition || 0) > 0 ? "#10b981" : "var(--muted)" }}>{fmtINR(row.extra_pay_addition || 0)}</td>}
                       {showSalary && <td style={{ fontWeight: 700 }}>{fmtINR(row.net_salary || row.base_salary || 0)}</td>}
                       <td style={{ color: row.effective_from ? "var(--text)" : "var(--muted)" }}>
-                        {row.effective_from || "—"}
+                        {row.effective_from ? fmtDate(row.effective_from) : "—"}
                       </td>
                       <td><StatusChip status={row.status || "Draft"} /></td>
                       <td>
@@ -391,7 +391,7 @@ export default function PayrollPage() {
                       <td>
                         {row.last_updated ? (
                           <div>
-                            <div style={{ fontSize: 13 }}>{row.last_updated.split("T")[0]}</div>
+                            <div style={{ fontSize: 13 }}>{fmtDateTime(row.last_updated)}</div>
                             <div style={{ fontSize: 11, color: "var(--muted)" }}>{role}</div>
                           </div>
                         ) : "—"}

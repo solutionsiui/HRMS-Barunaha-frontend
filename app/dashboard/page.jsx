@@ -12,30 +12,36 @@ import EmptyState from "@/components/ui/EmptyState";
 import Loader from "@/components/ui/Loader";
 import AttendanceCalendar from "@/components/ui/AttendanceCalendar";
 import Modal from "@/components/ui/Modal";
+import { Hand } from "lucide-react";
+
+const EMPTY_LEAVE_FORM = { subject: "", description: "", start_date: "", end_date: "", leave_type: "Casual Leave" };
 
 // ─── Employee Dashboard ───────────────────────────────────────
 function EmployeeDashboard({ user, showToast }) {
   const [attendance, setAttendance] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [leaves, setLeaves] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [leaveModal, setLeaveModal] = useState(false);
-  const [leaveForm, setLeaveForm] = useState({ subject: "", description: "", start_date: "", end_date: "", leave_type: "Casual Leave" });
+  const [leaveForm, setLeaveForm] = useState(EMPTY_LEAVE_FORM);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [a, h, t, n] = await Promise.all([
+        const [a, h, t, n, l] = await Promise.all([
           apiFetch("/attendance/me").catch(() => []),
           apiFetch("/attendance/holidays").catch(() => []),
           apiFetch("/tasks/my").catch(() => []),
           apiFetch("/notifications/").catch(() => []),
+          apiFetch("/leave/my").catch(() => []),
         ]);
         setAttendance(Array.isArray(a?.records) ? a.records : Array.isArray(a) ? a : []);
-        setHolidays(Array.isArray(h) ? h : []);
+        setHolidays(Array.isArray(h?.holidays) ? h.holidays : Array.isArray(h) ? h : []);
         setTasks(Array.isArray(t) ? t : []);
         setNotifications(Array.isArray(n?.notifications) ? n.notifications : Array.isArray(n) ? n : []);
+        setLeaves(Array.isArray(l) ? l : []);
       } catch {}
       setLoading(false);
     };
@@ -44,13 +50,14 @@ function EmployeeDashboard({ user, showToast }) {
 
   async function submitQuickLeave() {
     const todayStr = new Date().toISOString().split("T")[0];
+    if (!leaveForm.subject.trim()) { showToast("Subject is required", "error"); return; }
     if (!leaveForm.start_date || !leaveForm.end_date) { showToast("Please select both start and end dates", "error"); return; }
     if (leaveForm.end_date < leaveForm.start_date) { showToast("End date cannot be before start date", "error"); return; }
     if (leaveForm.start_date < todayStr) { showToast("Start date cannot be in the past", "error"); return; }
     try {
       const body = new FormData();
-      body.append("subject", leaveForm.subject || "Leave Request");
-      body.append("description", leaveForm.description || "Leave requested");
+      body.append("subject", leaveForm.subject.trim());
+      body.append("description", leaveForm.description.trim() || "Leave requested");
       body.append("start_date", leaveForm.start_date);
       body.append("end_date", leaveForm.end_date);
       body.append("leave_type", leaveForm.leave_type);
@@ -61,6 +68,8 @@ function EmployeeDashboard({ user, showToast }) {
       showToast("Leave applied!");
       setLeaveModal(false);
       setLeaveForm({ subject: "", description: "", start_date: "", end_date: "", leave_type: "Casual Leave" });
+      const refreshedLeaves = await apiFetch("/leave/my").catch(() => []);
+      setLeaves(Array.isArray(refreshedLeaves) ? refreshedLeaves : []);
     } catch (e) {
       showToast(e.message, "error");
     }
@@ -70,11 +79,31 @@ function EmployeeDashboard({ user, showToast }) {
   const pendingTasks = tasks.filter((t) => t.status === "pending").length;
   const today = attendance.find((r) => r.date === new Date().toISOString().split("T")[0]);
   const unread = notifications.filter((n) => !n.is_read).length;
+  const calendarAttendance = [...attendance];
+  leaves.filter((leave) => ["pending", "approved"].includes(String(leave.status || "").toLowerCase())).forEach((leave) => {
+    const cursor = new Date(`${leave.start_date}T00:00:00`);
+    const end = new Date(`${leave.end_date}T00:00:00`);
+    while (cursor <= end) {
+      const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+      calendarAttendance.push({ date, status: String(leave.status).toLowerCase() === "approved" ? "leave" : "pending_leave" });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+
+  function openQuickLeave(dateStr = "") {
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (dateStr && dateStr < todayStr) {
+      showToast("Leave cannot be applied for a past date", "error");
+      return;
+    }
+    setLeaveForm({ ...EMPTY_LEAVE_FORM, start_date: dateStr, end_date: dateStr });
+    setLeaveModal(true);
+  }
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="syne" style={{ fontSize: 28, fontWeight: 800 }}>Welcome back, {user?.first_name || "there"} 👋</h1>
+        <h1 className="syne" style={{ fontSize: 28, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>Welcome back, {user?.first_name || "there"} <Hand size={28} aria-label="Welcome" /></h1>
         <p style={{ color: "var(--muted)", marginTop: 4 }}>
           {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
@@ -127,11 +156,10 @@ function EmployeeDashboard({ user, showToast }) {
           </div>
           <div className="card" style={{ gridColumn: "1 / -1" }}>
             <AttendanceCalendar
-              attendance={attendance}
+              attendance={calendarAttendance}
               holidays={holidays}
               onDayClick={(dateStr) => {
-                setLeaveForm((form) => ({ ...form, start_date: dateStr, end_date: dateStr }));
-                setLeaveModal(true);
+                openQuickLeave(dateStr);
               }}
             />
           </div>
@@ -150,7 +178,7 @@ function EmployeeDashboard({ user, showToast }) {
         </div>
       )}
       {leaveModal && (
-        <Modal title="Apply for Leave" onClose={() => setLeaveModal(false)}
+        <Modal title="Apply for Leave" onClose={() => { setLeaveModal(false); setLeaveForm(EMPTY_LEAVE_FORM); }}
           footer={<><button className="btn-ghost" onClick={() => setLeaveModal(false)}>Cancel</button><button className="btn-primary" onClick={submitQuickLeave}>Apply</button></>}>
           <div className="form-group"><label className="label">Leave Category</label>
             <select className="input" value={leaveForm.leave_type} onChange={(e) => setLeaveForm((form) => ({ ...form, leave_type: e.target.value }))}>
@@ -159,10 +187,10 @@ function EmployeeDashboard({ user, showToast }) {
               <option value="Privileged Leave">Privileged Leave (PL)</option>
             </select>
           </div>
-          <div className="form-group"><label className="label">Subject</label><input className="input" value={leaveForm.subject} onChange={(e) => setLeaveForm((form) => ({ ...form, subject: e.target.value }))} /></div>
+          <div className="form-group"><label className="label">Subject <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required value={leaveForm.subject} onChange={(e) => setLeaveForm((form) => ({ ...form, subject: e.target.value }))} /></div>
           <div className="form-row">
-            <div className="form-group"><label className="label">Start Date</label><input className="input" type="date" min={new Date().toISOString().split("T")[0]} value={leaveForm.start_date} onChange={(e) => setLeaveForm((form) => ({ ...form, start_date: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">End Date</label><input className="input" type="date" min={leaveForm.start_date || new Date().toISOString().split("T")[0]} value={leaveForm.end_date} onChange={(e) => setLeaveForm((form) => ({ ...form, end_date: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">Start Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" required min={new Date().toISOString().split("T")[0]} value={leaveForm.start_date} onChange={(e) => setLeaveForm((form) => ({ ...form, start_date: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">End Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" required min={leaveForm.start_date || new Date().toISOString().split("T")[0]} value={leaveForm.end_date} onChange={(e) => setLeaveForm((form) => ({ ...form, end_date: e.target.value }))} /></div>
           </div>
           <div className="form-group"><label className="label">Description</label><textarea className="input" rows={3} value={leaveForm.description} onChange={(e) => setLeaveForm((form) => ({ ...form, description: e.target.value }))} /></div>
         </Modal>

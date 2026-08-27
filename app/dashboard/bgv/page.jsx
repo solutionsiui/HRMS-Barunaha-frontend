@@ -11,6 +11,7 @@ import Loader from "@/components/ui/Loader";
 export default function BGVPage() {
   const { role, user } = useAuth();
   const canManageOthers = role === "hr" || role === "admin";
+  const canDelete = role === "admin";
   const [bgv, setBgv] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
@@ -136,6 +137,30 @@ export default function BGVPage() {
   }
   function updateDep(i, k, v) { setForm((f) => ({ ...f, dependents: f.dependents.map((d, j) => j === i ? { ...d, [k]: v } : d) })); }
 
+  function openBGVModal() {
+    setForm({
+      ref_name: bgv?.ref_name || "",
+      ref_post: bgv?.ref_post || "",
+      ref_organization: bgv?.ref_organization || "",
+      ref_phone: bgv?.ref_phone || "",
+      dependents: bgv?.dependents?.length
+        ? bgv.dependents.map((item) => ({ ...item }))
+        : [{ name: "", relation: "", phone: "" }],
+    });
+    setShowModal(true);
+  }
+
+  async function deleteBGV() {
+    if (!selectedEmpId || !window.confirm(`Delete all BGV and dependent details for ${selectedEmpId}?`)) return;
+    try {
+      await apiFetch(`/bgv/${encodeURIComponent(selectedEmpId)}`, { method: "DELETE" });
+      showToast("BGV and dependent details deleted");
+      await loadBGV(selectedEmpId);
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  }
+
   async function downloadBGV(mode = "selected") {
     const token = getToken();
     const query = mode === "all"
@@ -184,7 +209,8 @@ export default function BGVPage() {
               <button className="btn-ghost" disabled={!selectedEmpId} onClick={() => downloadBGV("selected")}>⬇ Download Selected BGV</button>
             </>
           ) : null}
-          <button className="btn-primary" onClick={() => setShowModal(true)}>{bgv ? "Update BGV" : "+ Submit BGV"}</button>
+          {canDelete && selectedEmpId ? <button className="btn-danger" onClick={deleteBGV}>Delete BGV</button> : null}
+          <button className="btn-primary" onClick={openBGVModal}>{bgv ? "Update BGV" : "+ Submit BGV"}</button>
         </div>
       </div>
       {canManageOthers ? (

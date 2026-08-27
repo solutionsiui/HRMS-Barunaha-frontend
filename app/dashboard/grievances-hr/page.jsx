@@ -10,8 +10,11 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
 import Loader from "@/components/ui/Loader";
+import { useAuth } from "@/lib/auth-context";
 
 export default function GrievancesHRPage() {
+  const { role } = useAuth();
+  const canRespond = role === "admin";
   const [grievances, setGrievances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [respondModal, setRespondModal] = useState(null);
@@ -40,7 +43,7 @@ export default function GrievancesHRPage() {
 
   return (
     <div>
-      <div className="page-header"><h1 className="syne" style={{ fontSize: 28, fontWeight: 800 }}>Grievance Portal</h1><p style={{ color: "var(--muted)", marginTop: 4 }}>Confidential grievance management</p></div>
+      <div className="page-header"><h1 className="syne" style={{ fontSize: 28, fontWeight: 800 }}>{canRespond ? "Admin Grievance Management" : "All Grievances"}</h1><p style={{ color: "var(--muted)", marginTop: 4 }}>{canRespond ? "Confidential grievance management" : "Read-only grievance review; final responses are managed by Admin"}</p></div>
       <div className="grid-stats" style={{ marginBottom: 24 }}>
         <StatCard icon="📋" label="Total Filed" value={grievances.length} />
         <StatCard icon="⏳" label="Open" value={open} accent="#f59e0b" />
@@ -65,9 +68,9 @@ export default function GrievancesHRPage() {
                     👤 {g.is_anonymous || g.submitted_by_name === "Anonymous" ? "Anonymous Employee" : (g.submitted_by_name || "Anonymous")} · 📅 {fmtDate(g.submitted_on)}
                   </div>
                   <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>{g.description}</div>
-                  {g.admin_notes && <div style={{ marginTop: 10, padding: "10px 14px", background: "rgba(16,185,129,0.1)", borderRadius: 8, fontSize: 13, color: "#10b981" }}>💬 {g.responded_by_role || "HR"} Response{g.responded_by_name ? ` by ${g.responded_by_name}` : ""}: {g.admin_notes}</div>}
+                  {g.admin_notes && <div style={{ marginTop: 10, padding: "10px 14px", background: "rgba(16,185,129,0.1)", borderRadius: 8, fontSize: 13, color: "#10b981" }}>💬 Admin Response{g.responded_by_name ? ` by ${g.responded_by_name}` : ""}: {g.admin_notes}</div>}
                 </div>
-                {!g.is_resolved && <button className="btn-ghost" style={{ padding: "8px 16px", fontSize: 13, flexShrink: 0 }} onClick={() => { setRespondModal(g); setResponseForm({ admin_notes: g.admin_notes || "", is_resolved: false }); }}>Respond</button>}
+                {canRespond && !g.is_resolved && <button className="btn-ghost" style={{ padding: "8px 16px", fontSize: 13, flexShrink: 0 }} onClick={() => { setRespondModal(g); setResponseForm({ admin_notes: g.admin_notes || "", is_resolved: false }); }}>Respond</button>}
               </div>
             ))}</div>
             <Pagination

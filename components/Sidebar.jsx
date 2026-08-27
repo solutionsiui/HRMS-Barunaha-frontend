@@ -20,7 +20,7 @@ import {
   FolderLock,
   LayoutDashboard,
   Logs,
-  Menu,
+  X,
   MessagesSquare,
   Settings2,
   ShieldCheck,
@@ -93,7 +93,7 @@ export default function Sidebar({ sidebarOpen, onClose }) {
 
   const isActive = (item) => {
     if (item.href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(item.href);
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
   return (
@@ -102,7 +102,7 @@ export default function Sidebar({ sidebarOpen, onClose }) {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
           <AppLogo compact size={46} subtitle={`${role?.toUpperCase()} PORTAL`} />
           <button className="sidebar-close" onClick={onClose} aria-label="Close navigation">
-            <Menu size={18} />
+            <X size={18} />
           </button>
         </div>
 

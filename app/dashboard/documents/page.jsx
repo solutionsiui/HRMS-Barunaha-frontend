@@ -150,8 +150,8 @@ export default function DocumentsPage() {
   const [teamEmployees, setTeamEmployees] = useState([]);
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [documentData, setDocumentData] = useState(null);
-  const [loadingTeam, setLoadingTeam] = useState(false);
-  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [loadingTeam, setLoadingTeam] = useState(true);
+  const [loadingDocs, setLoadingDocs] = useState(true);
   const [uploading, setUploading] = useState(null);
   const [reviewing, setReviewing] = useState(null);
   const [mode, setMode] = useState("team");
@@ -274,6 +274,10 @@ export default function DocumentsPage() {
 
   async function handleUpload(docType, file) {
     if (!file || !selectedEmp?.emp_id) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Document cannot exceed 5MB", "error");
+      return;
+    }
     setUploading(docType);
     const formData = new FormData();
     formData.append("file", file);
@@ -297,6 +301,10 @@ export default function DocumentsPage() {
     const entries = Object.entries(bulkFiles).filter(([, file]) => file);
     if (entries.length === 0) {
       showToast("Select at least one document", "error");
+      return;
+    }
+    if (entries.some(([, file]) => file.size > 5 * 1024 * 1024)) {
+      showToast("Each document must be 5MB or smaller", "error");
       return;
     }
 
@@ -493,7 +501,9 @@ export default function DocumentsPage() {
               <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Employees</h3>
               {loadingTeam ? <span style={{ fontSize: 12, color: "var(--muted)" }}>Loading...</span> : null}
             </div>
-            {teamEmployees.length === 0 ? (
+            {loadingTeam ? (
+              <Loader />
+            ) : teamEmployees.length === 0 ? (
               <EmptyState icon="📁" title="No employees" sub="No active employees found for document review." />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -540,7 +550,9 @@ export default function DocumentsPage() {
         ) : null}
 
         <div className="card" style={{ padding: 24 }}>
-          {!selectedEmp ? (
+          {loadingTeam && teamViewActive && !selectedEmp ? (
+            <Loader />
+          ) : !selectedEmp ? (
             <EmptyState icon="📁" title="Select an employee" sub="Choose an employee to view document details." />
           ) : loadingDocs ? (
             <Loader />
@@ -640,6 +652,7 @@ export default function DocumentsPage() {
                             </button>
                             <input
                               type="file"
+                              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                               style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }}
                               onChange={(event) => {
                                 const f = event.target.files?.[0];
@@ -695,6 +708,7 @@ export default function DocumentsPage() {
                 <input
                   className="input"
                   type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                   onChange={(event) => setBulkFiles((current) => ({ ...current, [type.id]: event.target.files?.[0] || null }))}
                 />
                 <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted)" }}>

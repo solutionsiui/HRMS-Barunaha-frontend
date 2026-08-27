@@ -20,6 +20,7 @@ export default function AppraisalPage() {
   const [appraisalLimit, setAppraisalLimit] = useState(100);
   const [targets, setTargets] = useState([]);
   const [requestForm, setRequestForm] = useState({ employee_emp_id: "", increment_percent: "", justification: "", effective_from: "" });
+  const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,12 +110,13 @@ export default function AppraisalPage() {
       };
       if (requestForm.effective_from) payload.effective_from = requestForm.effective_from;
 
-      await apiFetch("/performance/increment-request", {
-        method: "POST",
+      await apiFetch(editingId ? `/performance/increment-requests/${editingId}` : "/performance/increment-request", {
+        method: editingId ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
 
-      showToast("Increment request sent to Accounts review");
+      showToast(editingId ? "Appraisal request updated" : "Increment request sent to Accounts review");
+      setEditingId(null);
       setRequestForm((current) => ({ ...current, increment_percent: "", justification: "", effective_from: "" }));
       load();
     } catch (e) {
@@ -122,6 +124,22 @@ export default function AppraisalPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function editRequest(request) {
+    setEditingId(request.id);
+    setRequestForm({
+      employee_emp_id: request.emp_id,
+      increment_percent: String(request.increment_percent || ""),
+      justification: request.justification || "",
+      effective_from: request.effective_from || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setRequestForm((current) => ({ ...current, increment_percent: "", justification: "", effective_from: "" }));
   }
 
   const heading = isAccounts ? "Appraisal Review Queue" : "Salary Appraisal Approvals";
@@ -141,12 +159,12 @@ export default function AppraisalPage() {
 
       {isHR ? (
         <div className="card" style={{ padding: 20, marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, marginBottom: 12 }}>Create Appraisal</div>
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>{editingId ? "Edit Pending Appraisal" : "Create Appraisal"}</div>
           <form onSubmit={submitIncrementRequest}>
             <div className="form-row">
               <div className="form-group">
                 <label className="label">Employee <span style={{ color: "#ef4444" }}>*</span></label>
-                <select className="input" value={requestForm.employee_emp_id} onChange={(e) => setRequestForm((current) => ({ ...current, employee_emp_id: e.target.value }))}>
+                <select className="input" disabled={Boolean(editingId)} value={requestForm.employee_emp_id} onChange={(e) => setRequestForm((current) => ({ ...current, employee_emp_id: e.target.value, increment_percent: "", justification: "", effective_from: "" }))}>
                   <option value="">Select employee</option>
                   {targets.map((item) => <option key={item.emp_id} value={item.emp_id}>{item.emp_id} - {item.first_name} {item.last_name}</option>)}
                 </select>
@@ -166,7 +184,10 @@ export default function AppraisalPage() {
               <label className="label">Justification <span style={{ color: "#ef4444" }}>*</span></label>
               <textarea className="input" rows={3} value={requestForm.justification} onChange={(e) => setRequestForm((current) => ({ ...current, justification: e.target.value }))} placeholder="Reason for this appraisal" />
             </div>
-            <button className="btn-primary" type="submit" disabled={submitting || loading}>{submitting ? "Submitting..." : "Submit to Accounts"}</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn-primary" type="submit" disabled={submitting || loading}>{submitting ? "Submitting..." : editingId ? "Save Changes" : "Submit to Accounts"}</button>
+              {editingId ? <button className="btn-ghost" type="button" onClick={cancelEdit}>Cancel Edit</button> : null}
+            </div>
           </form>
         </div>
       ) : null}
@@ -176,20 +197,21 @@ export default function AppraisalPage() {
           <div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Employee</th>{showFinancialColumns ? <th>Current</th> : null}<th>Increment</th><th>Limit</th>{showFinancialColumns ? <th>Increment Amount</th> : null}{showFinancialColumns ? <th>Proposed</th> : null}<th>Requested By</th><th>Notes</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Employee</th>{showFinancialColumns ? <th>Current</th> : null}<th>Increment</th><th>Limit</th>{showFinancialColumns ? <th>Increment Amount</th> : null}{showFinancialColumns ? <th>Proposed</th> : null}<th>Requested By</th><th>Attempts</th><th>Notes</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
                   {(() => {
                     const safePage = Math.min(currentPage, Math.max(1, Math.ceil(requests.length / PER_PAGE)));
                     const paginatedRequests = requests.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
                     return paginatedRequests.map((r, i) => (
                       <tr key={i}>
-                        <td><b>{r.emp_id}</b><div style={{fontSize:12,color:"var(--muted)"}}>{r.name}</div></td>
+                        <td><b>{r.emp_id}</b><div style={{fontSize:12,color:"var(--muted)"}}>{r.name}</div><div style={{fontSize:11,color:"var(--muted)"}}>{[r.department, r.designation].filter(Boolean).join(" · ") || "—"}</div>{r.employee_is_active === false ? <div style={{ color: "#ef4444", fontSize: 11, fontWeight: 700 }}>Inactive employee</div> : null}</td>
                         {showFinancialColumns ? <td>{fmtINR(r.current_salary)}</td> : null}
                         <td><span style={{ color: "#10b981", fontWeight: 700 }}>{r.increment_percent ? `+${r.increment_percent}%` : "—"}</span></td>
                         <td>{r.appraisal_limit_percent ?? appraisalLimit}%</td>
                         {showFinancialColumns ? <td>{fmtINR(r.increment_amount)}</td> : null}
                         {showFinancialColumns ? <td><span style={{ fontWeight: 700, color: "#10b981" }}>{fmtINR(r.proposed_salary)}</span></td> : null}
                         <td>{r.requested_by_name || `ID: ${r.requested_by_id}`}</td>
+                        <td>{r.attempt_count || 1}</td>
                         <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.justification}>
                           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.justification}</div>
                           {r.accounts_comments ? <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Accounts: ${r.accounts_comments}`}>Accounts: {r.accounts_comments}</div> : null}
@@ -198,14 +220,14 @@ export default function AppraisalPage() {
                         <td><StatusBadge status={r.status} /></td>
                         <td>{(isAccounts && r.status === "pending_accounts") || (isAdmin && r.status === "pending_admin") ? (
                           <div style={{ display: "flex", gap: 6 }}>
-                            {isAccounts ? (
+                            {r.employee_is_active !== false ? (isAccounts ? (
                               <button className="btn-primary" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => decide(r.id, "forward")}>→ Forward</button>
                             ) : (
                               <button className="btn-primary" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => decide(r.id, "approve")}>✓ Approve</button>
-                            )}
+                            )) : null}
                             <button className="btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => decide(r.id, "reject")}>✕ Reject</button>
                           </div>
-                        ) : <span style={{ color: "var(--muted)" }}>—</span>}</td>
+                        ) : isHR && r.status === "pending_accounts" ? <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => editRequest(r)}>Edit</button> : <span style={{ color: "var(--muted)" }}>—</span>}</td>
                       </tr>
                     ));
                   })()}

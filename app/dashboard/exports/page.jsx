@@ -65,10 +65,16 @@ export default function ExportsPage() {
           <div className="form-group"><label className="label">Year</label><select className="input" value={year} onChange={(e) => setYear(+e.target.value)}>{[2024, 2025, 2026, 2027].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
           {!isAccounts ? <div className="form-group">
             <label className="label">Department</label>
-            <select className="input" value={department} onChange={(e) => setDepartment(e.target.value)}>
-              <option value="">All departments</option>
-              {departments.map((item) => <option key={item.id || item.name} value={item.name}>{item.name}</option>)}
-            </select>
+            <input
+              className="input"
+              list="department-search-list"
+              placeholder="Type to search departments…"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+            />
+            <datalist id="department-search-list">
+              {departments.map((item) => <option key={item.id || item.name} value={item.name} />)}
+            </datalist>
           </div> : null}
           <div className="form-group">
             <label className="label">{isAccounts ? "Employee (optional)" : "Employee"}</label>

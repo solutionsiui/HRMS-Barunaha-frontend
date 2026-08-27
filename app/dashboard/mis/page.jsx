@@ -32,6 +32,12 @@ function weekStartFor(value) {
   return formatInputDate(copy);
 }
 
+function weekEndFor(value) {
+  const start = parseInputDate(weekStartFor(value));
+  start.setDate(start.getDate() + 6);
+  return formatInputDate(start);
+}
+
 function todayInputValue() {
   return formatInputDate(new Date());
 }
@@ -279,6 +285,7 @@ function HODMISView() {
             }}
             style={{ minWidth: 160 }}
           />
+          <input className="input" type="date" value={weekEndFor(weekStart)} readOnly aria-label="Week end" title="Week end" style={{ minWidth: 160 }} />
           <button
             type="button"
             className="btn-ghost"
@@ -299,7 +306,7 @@ function HODMISView() {
           </button>
           <button className="btn-ghost" onClick={load}>Refresh</button>
           <button className="btn-primary" onClick={openNewEntry} disabled={misData.is_submitted}>+ Daily Entry</button>
-          <button className="btn-primary" onClick={() => setSubmitModal(true)} disabled={misData.is_submitted || !misData.entries.length}>
+          <button className="btn-primary" onClick={() => { setSubmissionRemarks(""); setSubmitModal(true); }} disabled={misData.is_submitted || !misData.entries.length}>
             Submit Weekly MIS
           </button>
         </div>
@@ -686,10 +693,10 @@ function HODMISView() {
       {submitModal ? (
         <Modal
           title="Submit Weekly MIS Report"
-          onClose={() => setSubmitModal(false)}
+          onClose={() => { setSubmitModal(false); setSubmissionRemarks(""); }}
           footer={(
             <>
-              <button className="btn-ghost" onClick={() => setSubmitModal(false)}>Cancel</button>
+              <button className="btn-ghost" onClick={() => { setSubmitModal(false); setSubmissionRemarks(""); }}>Cancel</button>
               <button className="btn-primary" onClick={submitWeeklyReport} disabled={submitting}>
                 {submitting ? "Submitting..." : "Submit to HR/Admin"}
               </button>
@@ -736,6 +743,15 @@ function HRAdminMISView() {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showToast, toastNode] = useToast();
+
+  async function openSubmission(submissionId) {
+    try {
+      const detail = await apiFetch(`/mis/weekly/${submissionId}`);
+      setSelectedSubmission(detail);
+    } catch (error) {
+      showToast(error.message || "Unable to load MIS report", "error");
+    }
+  }
 
   const loadFilters = useCallback(async () => {
     try {
@@ -799,8 +815,12 @@ function HRAdminMISView() {
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
         <div className="form-row">
           <div className="form-group">
-            <label className="label">Week</label>
+            <label className="label">Week Start</label>
             <input className="input" type="date" value={weekStart} onChange={(e) => setWeekStart(weekStartFor(e.target.value))} />
+          </div>
+          <div className="form-group">
+            <label className="label">Week End</label>
+            <input className="input" type="date" value={weekEndFor(weekStart)} readOnly />
           </div>
           <div className="form-group">
             <label className="label">Department</label>
@@ -870,7 +890,7 @@ function HRAdminMISView() {
                     <td>{submission.average_efficiency}%</td>
                     <td>{fmtDateTime(submission.submitted_at)}</td>
                     <td>
-                      <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setSelectedSubmission(submission)}>
+                      <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => openSubmission(submission.id)}>
                         View
                       </button>
                     </td>

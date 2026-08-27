@@ -185,7 +185,7 @@ export default function PeerRatingsPage() {
         >
           Give Rating
         </button>
-        <button
+        {role !== "admin" ? <button
           className="btn-ghost"
           onClick={() => setActiveTab("my")}
           style={{
@@ -198,7 +198,7 @@ export default function PeerRatingsPage() {
           }}
         >
           My Performance
-        </button>
+        </button> : null}
         {isPrivileged && (
           <button
             className="btn-ghost"
@@ -373,7 +373,7 @@ export default function PeerRatingsPage() {
       )}
 
       {/* TAB 2: My Received Ratings */}
-      {activeTab === "my" && (
+      {activeTab === "my" && role !== "admin" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 }}>
           {/* Aggregates */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

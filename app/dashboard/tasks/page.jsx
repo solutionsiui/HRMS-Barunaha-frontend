@@ -45,6 +45,13 @@ export default function MyTasksPage() {
   useEffect(() => { load(); }, [load]);
 
   async function submitWork(taskId) {
+    const completion = Number(workForm.completion_percent);
+    const hours = Number(workForm.hours_taken);
+    if (!workForm.task_name.trim()) return showToast("Task name is required", "error");
+    if (!Number.isFinite(completion) || completion < 0 || completion > 100) return showToast("Completion percentage must be between 0 and 100", "error");
+    if (!Number.isFinite(hours) || hours < 0) return showToast("Hours taken must be zero or greater", "error");
+    if (!workForm.output_text.trim() && !workForm.attached_file && !(workForm.attachments || []).length) return showToast("Add output details or attach an output file", "error");
+    if (workForm.task_link && !/^https?:\/\//i.test(workForm.task_link)) return showToast("Task link must start with http:// or https://", "error");
     const formData = new FormData();
     formData.append("date", new Date().toISOString().slice(0, 10));
     formData.append("task_name", workForm.task_name || workModal?.title || "");
@@ -90,7 +97,7 @@ export default function MyTasksPage() {
         {loading ? <Loader /> : tasks.length === 0 ? <EmptyState icon="✓" title="No tasks" sub="Tasks will appear here" /> : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Name of Task</th><th>Completed</th><th>Completion %</th><th>Output</th><th>Pictures</th><th>Link</th><th>Issue</th><th>Hours</th><th>Remark</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Date</th><th>Name of Task</th><th>Completed</th><th>Completion %</th><th>Output</th><th>Pictures</th><th>Review Status</th><th>Link</th><th>Issue</th><th>Hours</th><th>Remark</th><th>Actions</th></tr></thead>
               <tbody>
                 {(() => {
                   const safePage = Math.min(currentPage, Math.max(1, Math.ceil(tasks.length / PER_PAGE)));
@@ -116,12 +123,8 @@ export default function MyTasksPage() {
                       <td style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.revert?.output_text || "—"}</td>
                       <td>
                         {((t.revert?.image_urls?.length || 0) + (t.revert?.attachments?.length || 0)) || "—"}
-                        {t.revert?.tl_status && t.revert.tl_status !== "skipped" ? (
-                          <div style={{ fontSize: 10, color: t.revert.tl_status === "approved" ? "#16a34a" : t.revert.tl_status === "rejected" ? "#dc2626" : "#f59e0b" }}>
-                            TL: {t.revert.tl_status}
-                          </div>
-                        ) : null}
                       </td>
+                      <td>{t.revert ? <><div style={{ fontSize: 11 }}>TL: {t.revert.tl_status || "Skipped"}</div><div style={{ fontSize: 11 }}>HOD: {t.revert.hod_status || "Pending"}</div></> : "Not submitted"}</td>
                       <td>{t.revert?.task_link ? <a href={t.revert.task_link} target="_blank" rel="noreferrer">Open</a> : "—"}</td>
                       <td style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.revert?.issue_text || "—"}</td>
                       <td>{t.revert?.hours_taken ?? "—"}</td>
@@ -146,15 +149,15 @@ export default function MyTasksPage() {
         <Modal title={`Submit Work: ${workModal.title}`} onClose={() => setWorkModal(null)}
           footer={<><button className="btn-ghost" onClick={() => setWorkModal(null)}>Cancel</button><button className="btn-primary" onClick={() => submitWork(workModal.id)}>Submit</button></>}>
           <div className="form-row">
-            <div className="form-group"><label className="label">Date</label><input className="input" value={new Date().toISOString().slice(0, 10)} disabled /></div>
+            <div className="form-group"><label className="label">Date</label><input className="input" value={fmtDate(new Date().toISOString().slice(0, 10))} disabled /></div>
             <div className="form-group"><label className="label">Name of Task <span style={{ color: "#ef4444" }}>*</span></label><input className="input" value={workForm.task_name} readOnly style={{ background: "var(--bg-secondary)", cursor: "default" }} /></div>
           </div>
           <div className="form-row">
-            <div className="form-group"><label className="label">Completed or Not</label><select className="input" value={workForm.completed_flag ? "yes" : "no"} onChange={(e) => setWorkForm((form) => ({ ...form, completed_flag: e.target.value === "yes" }))}><option value="no">No</option><option value="yes">Yes</option></select></div>
-            <div className="form-group"><label className="label">Completion %</label><input className="input" type="number" min="0" max="100" value={workForm.completion_percent} onChange={(e) => setWorkForm((form) => ({ ...form, completion_percent: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">Hours Taken</label><input className="input" type="number" min="0" step="0.5" value={workForm.hours_taken} onChange={(e) => setWorkForm((form) => ({ ...form, hours_taken: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">Completed or Not <span style={{ color: "#ef4444" }}>*</span></label><select className="input" value={workForm.completed_flag ? "yes" : "no"} onChange={(e) => setWorkForm((form) => ({ ...form, completed_flag: e.target.value === "yes" }))}><option value="no">No</option><option value="yes">Yes</option></select></div>
+            <div className="form-group"><label className="label">Completion % <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required type="number" min="0" max="100" value={workForm.completion_percent} onChange={(e) => setWorkForm((form) => ({ ...form, completion_percent: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">Hours Taken <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required type="number" min="0" step="0.5" value={workForm.hours_taken} onChange={(e) => setWorkForm((form) => ({ ...form, hours_taken: e.target.value }))} /></div>
           </div>
-          <div className="form-group"><label className="label">Output</label><textarea className="input" rows={3} value={workForm.output_text} onChange={(e) => setWorkForm((form) => ({ ...form, output_text: e.target.value }))} /></div>
+          <div className="form-group"><label className="label">Output <span style={{ color: "#ef4444" }}>*</span> <span style={{ fontWeight: 400, color: "var(--muted)" }}>(or attach an output file)</span></label><textarea className="input" rows={3} value={workForm.output_text} onChange={(e) => setWorkForm((form) => ({ ...form, output_text: e.target.value }))} /></div>
           <div className="form-row">
             <div className="form-group"><label className="label">Link of Task</label><input className="input" value={workForm.task_link} onChange={(e) => setWorkForm((form) => ({ ...form, task_link: e.target.value }))} /></div>
             <div className="form-group"><label className="label">Issue</label><input className="input" value={workForm.issue_text} onChange={(e) => setWorkForm((form) => ({ ...form, issue_text: e.target.value }))} /></div>

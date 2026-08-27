@@ -13,7 +13,7 @@ import Pagination from "@/components/ui/Pagination";
 import { validateEmail, validateStrongPassword, validateBaseSalary, sanitizeNumericInput } from "@/lib/validators";
 
 export default function StaffPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
 
   const [staff, setStaff] = useState([]);
@@ -28,7 +28,7 @@ export default function StaffPage() {
   const [quotaForm, setQuotaForm] = useState({ remaining_cl: 10, remaining_sl: 12, remaining_pl: 15, used_cl: 0, used_sl: 0, used_pl: 0, loading: false });
   const [form, setForm] = useState({
     username: "", password: "", first_name: "", last_name: "", email: "",
-    emp_id: "", department_id: "", is_hr: false, is_accounts: false, is_hod: false, is_tl: false,
+    emp_id: "", department_id: "", is_hr: false, is_accounts: false, is_hod: false, is_tl: false, is_superuser: false,
     machine_user_id: "", base_salary: "", hod_department_ids: [],
     hod_user_id: "", tl_user_id: "", system_no: "", is_night_shift: false,
     hod_user_ids: [], tl_user_ids: [], cl_quota: 10, sl_quota: 12, pl_quota: 15,
@@ -47,6 +47,7 @@ export default function StaffPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const PER_PAGE = 15;
   const [showToast, toastNode] = useToast();
+  const [bankDetails, setBankDetails] = useState(null);
   const latestLoadIdRef = useRef(0);
 
   const getNextEmpId = (empId) => {
@@ -193,6 +194,10 @@ export default function StaffPage() {
       showToast("First name is required", "error");
       return;
     }
+    if (!form.last_name.trim()) {
+      showToast("Last name is required", "error");
+      return;
+    }
     if (!form.username.trim()) {
       showToast("Username is required", "error");
       return;
@@ -203,6 +208,14 @@ export default function StaffPage() {
     }
     if (!form.department_id) {
       showToast("Department is required", "error");
+      return;
+    }
+    if (!form.email.trim()) {
+      showToast("Email is required", "error");
+      return;
+    }
+    if ([form.is_hr, form.is_accounts, form.is_hod, form.is_tl, form.is_superuser].filter(Boolean).length > 1) {
+      showToast("Select only one role for an employee", "error");
       return;
     }
     const pwdCheck = validateStrongPassword(form.password);
@@ -233,8 +246,8 @@ export default function StaffPage() {
         department_id: +form.department_id,
         hod_user_id: form.hod_user_ids && form.hod_user_ids.length > 0 ? Number(form.hod_user_ids[0]) : undefined,
         tl_user_id: form.tl_user_ids && form.tl_user_ids.length > 0 ? Number(form.tl_user_ids[0]) : undefined,
-        hod_user_ids: (form.hod_user_ids || []).map(Number),
-        tl_user_ids: (form.tl_user_ids || []).map(Number),
+        hod_user_ids: (form.hod_user_ids || []).slice(0, 1).map(Number),
+        tl_user_ids: (form.tl_user_ids || []).slice(0, 1).map(Number),
         hod_department_ids: form.is_hod
           ? withPrimaryDepartment(form.hod_department_ids, parseDepartmentId(form.department_id))
           : [],
@@ -254,7 +267,7 @@ export default function StaffPage() {
       setShowModal(false);
       setForm({
         username: "", password: "", first_name: "", last_name: "", email: "",
-        emp_id: "", department_id: "", is_hr: false, is_accounts: false, is_hod: false, is_tl: false,
+        emp_id: "", department_id: "", is_hr: false, is_accounts: false, is_hod: false, is_tl: false, is_superuser: false,
         machine_user_id: "", base_salary: "", hod_department_ids: [],
         hod_user_id: "", tl_user_id: "", system_no: "", is_night_shift: false,
         hod_user_ids: [], tl_user_ids: [], cl_quota: 10, sl_quota: 12, pl_quota: 15,
@@ -268,8 +281,42 @@ export default function StaffPage() {
   async function updateEmployee(e) {
     e.preventDefault();
     if (!editModal) return;
-    if (editForm.new_password && editForm.new_password.trim().length < 6) {
-      showToast("Reset password must be at least 6 characters", "error");
+    if (!(editForm.first_name || "").trim() || !(editForm.last_name || "").trim()) {
+      showToast("First name and last name are required", "error");
+      return;
+    }
+    if (!(editForm.email || "").trim()) {
+      showToast("Email is required", "error");
+      return;
+    }
+    if (!editForm.department_id) {
+      showToast("Department is required", "error");
+      return;
+    }
+    if (editForm.new_password) {
+      const passwordCheck = validateStrongPassword(editForm.new_password);
+      if (!passwordCheck.valid) {
+        showToast(passwordCheck.message, "error");
+        return;
+      }
+    }
+    if (editForm.email && !validateEmail(editForm.email)) {
+      showToast("Please enter a valid email address", "error");
+      return;
+    }
+    if ([editForm.is_hr, editForm.is_accounts, editForm.is_hod, editForm.is_tl].filter(Boolean).length > 1) {
+      showToast("Select only one role for an employee", "error");
+      return;
+    }
+    if (editForm.base_salary !== "") {
+      const salaryCheck = validateBaseSalary(editForm.base_salary);
+      if (!salaryCheck.valid) {
+        showToast(salaryCheck.message, "error");
+        return;
+      }
+    }
+    if (editForm.ifsc_code && !/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(editForm.ifsc_code.trim())) {
+      showToast("Enter a valid 11-character IFSC code", "error");
       return;
     }
     try {
@@ -288,8 +335,8 @@ export default function StaffPage() {
         department_id: Number.isFinite(parsedDepartmentId) ? parsedDepartmentId : undefined,
         hod_user_id: editForm.hod_user_ids && editForm.hod_user_ids.length > 0 ? Number(editForm.hod_user_ids[0]) : null,
         tl_user_id: editForm.tl_user_ids && editForm.tl_user_ids.length > 0 ? Number(editForm.tl_user_ids[0]) : null,
-        hod_user_ids: (editForm.hod_user_ids || []).map(Number),
-        tl_user_ids: (editForm.tl_user_ids || []).map(Number),
+        hod_user_ids: (editForm.hod_user_ids || []).slice(0, 1).map(Number),
+        tl_user_ids: (editForm.tl_user_ids || []).slice(0, 1).map(Number),
         hod_department_ids: !!editForm.is_hod
           ? withPrimaryDepartment(editForm.hod_department_ids, parsedDepartmentId)
           : [],
@@ -328,6 +375,14 @@ export default function StaffPage() {
 
   async function uploadProfilePic(empId, file) {
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Select a valid image file", "error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Profile picture cannot exceed 5MB", "error");
+      return;
+    }
     const formData = new FormData();
     formData.append("file", file);
     try {
@@ -488,6 +543,7 @@ export default function StaffPage() {
   }
 
   function openEdit(emp) {
+    setBankDetails(null);
     setEditModal(emp);
     setEditForm({
       first_name:   emp.first_name  || "",
@@ -519,6 +575,23 @@ export default function StaffPage() {
       new_password: "",
       is_active:    emp.is_active   !== false,
     });
+  }
+
+  async function lookupIfsc() {
+    const code = (editForm.ifsc_code || "").trim().toUpperCase();
+    setEditForm((current) => ({ ...current, ifsc_code: code }));
+    setBankDetails(null);
+    if (!code) return;
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(code)) {
+      showToast("Enter a valid 11-character IFSC code", "error");
+      return;
+    }
+    try {
+      const details = await apiFetch(`/employees/bank-details/${code}`);
+      setBankDetails(details);
+    } catch (error) {
+      showToast(error.message, "error");
+    }
   }
 
   async function openQuotaEdit(emp) {
@@ -688,7 +761,7 @@ export default function StaffPage() {
         <div>
           <h1 className="syne" style={{ fontSize: 28, fontWeight: 800 }}>Employee Management</h1>
           <p style={{ color: "var(--muted)", marginTop: 4 }}>
-            {isAdmin ? "Admin View, Add, Edit, Delete, and Deactivate All Employees" : "Add, Manage, and Deactivate Employees"}
+            {isAdmin ? "Admin View, Add, Edit, Delete, and Deactivate All Employees" : "HR can add employees; account management is handled by Admin"}
           </p>
         </div>
         <button className="btn-primary" onClick={handleOpenAddModal}>+ Add Employee</button>
@@ -962,12 +1035,7 @@ export default function StaffPage() {
                             ✏️ Edit
                           </button>
                         )}
-                        {!isAdmin && (
-                          <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12, color: "var(--primary)" }} onClick={() => openQuotaEdit(e)}>
-                            🌴 Edit Quotas
-                          </button>
-                        )}
-                        {e.is_active && (
+                        {isAdmin && e.is_active && e.user_id !== user?.id && (
                           <button className="btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => deactivate(e.emp_id)}>
                             Deactivate
                           </button>
@@ -1038,7 +1106,7 @@ export default function StaffPage() {
                           setForm((f) => ({
                             ...f,
                             hod_user_ids: e.target.checked
-                              ? [...(f.hod_user_ids || []), id]
+                              ? [id]
                               : (f.hod_user_ids || []).filter((item) => item !== id)
                           }));
                         }}
@@ -1075,7 +1143,7 @@ export default function StaffPage() {
                           setForm((f) => ({
                             ...f,
                             tl_user_ids: e.target.checked
-                              ? [...(f.tl_user_ids || []), id]
+                              ? [id]
                               : (f.tl_user_ids || []).filter((item) => item !== id)
                           }));
                         }}
@@ -1136,13 +1204,13 @@ export default function StaffPage() {
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12 }}>
             <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}>
-              <input type="checkbox" checked={!form.is_hr && !form.is_accounts && !form.is_hod && !form.is_tl} disabled /> Employee Role
+              <input type="checkbox" checked={!form.is_hr && !form.is_accounts && !form.is_hod && !form.is_tl && !form.is_superuser} disabled /> Employee Role
             </label>
-            {isAdmin && <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_hr} onChange={(e) => setForm((f) => ({ ...f, is_hr: e.target.checked }))} /> HR Role</label>}
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_accounts} onChange={(e) => setForm((f) => ({ ...f, is_accounts: e.target.checked }))} /> Accounts Role</label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_hod} onChange={(e) => setForm((f) => ({ ...f, is_hod: e.target.checked, hod_department_ids: e.target.checked ? withPrimaryDepartment(f.hod_department_ids, parseDepartmentId(f.department_id)) : f.hod_department_ids }))} /> HOD Role</label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_tl} onChange={(e) => setForm((f) => ({ ...f, is_tl: e.target.checked }))} /> TL Role</label>
-            {isAdmin && <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_superuser || false} onChange={(e) => setForm((f) => ({ ...f, is_superuser: e.target.checked }))} /> Admin / Manager Role</label>}
+            {isAdmin && <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_hr} onChange={(e) => setForm((f) => ({ ...f, is_hr: e.target.checked, is_accounts: false, is_hod: false, is_tl: false, is_superuser: false }))} /> HR Role</label>}
+            {isAdmin && <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_accounts} onChange={(e) => setForm((f) => ({ ...f, is_accounts: e.target.checked, is_hr: false, is_hod: false, is_tl: false, is_superuser: false }))} /> Accounts Role</label>}
+            {isAdmin && <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_hod} onChange={(e) => setForm((f) => ({ ...f, is_hod: e.target.checked, is_hr: false, is_accounts: false, is_tl: false, is_superuser: false, hod_department_ids: e.target.checked ? withPrimaryDepartment(f.hod_department_ids, parseDepartmentId(f.department_id)) : f.hod_department_ids }))} /> HOD Role</label>}
+            {isAdmin && <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_tl} onChange={(e) => setForm((f) => ({ ...f, is_tl: e.target.checked, is_hr: false, is_accounts: false, is_hod: false, is_superuser: false }))} /> TL Role</label>}
+            {isAdmin && <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={form.is_superuser || false} onChange={(e) => setForm((f) => ({ ...f, is_superuser: e.target.checked, is_hr: false, is_accounts: false, is_hod: false, is_tl: false }))} /> Admin / Manager Role</label>}
           </div>
           {form.is_hod && (
             <div style={{ marginTop: 18 }}>
@@ -1207,12 +1275,12 @@ export default function StaffPage() {
             {/* Dummy inputs to prevent Chrome autofill */}
             <input type="text" name="chrome-autofill-dummy-username" style={{ position: "absolute", top: -1000, left: -1000, width: 1, height: 1, opacity: 0 }} tabIndex={-1} readOnly />
             <input type="password" name="chrome-autofill-dummy-password" style={{ position: "absolute", top: -1000, left: -1000, width: 1, height: 1, opacity: 0 }} tabIndex={-1} readOnly />
-            <div className="form-group"><label className="label">First Name</label><input className="input" value={editForm.first_name} onChange={(e) => setEditForm((f) => ({ ...f, first_name: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">Last Name</label><input className="input" value={editForm.last_name} onChange={(e) => setEditForm((f) => ({ ...f, last_name: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">Email</label><input className="input" type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">First Name <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required placeholder="Enter first name" value={editForm.first_name} onChange={(e) => setEditForm((f) => ({ ...f, first_name: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">Last Name <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required placeholder="Enter last name" value={editForm.last_name} onChange={(e) => setEditForm((f) => ({ ...f, last_name: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">Email <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required placeholder="user@organization.com" type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
             <div className="form-group"><label className="label">Machine User ID</label><input className="input" placeholder="Leave blank to use Employee ID for ZKTeco" value={editForm.machine_user_id} onChange={(e) => setEditForm((f) => ({ ...f, machine_user_id: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">Department</label><select className="input" value={editForm.department_id} onChange={(e) => setEditForm((f) => ({ ...f, department_id: e.target.value, department: departments.find((d) => d.id === +e.target.value)?.name || "", hod_department_ids: f.is_hod ? withPrimaryDepartment(f.hod_department_ids, parseDepartmentId(e.target.value)) : f.hod_department_ids }))}><option value="">Select department…</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-            <div className="form-group" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div className="form-group"><label className="label">Department <span style={{ color: "#ef4444" }}>*</span></label><select className="input" required value={editForm.department_id} onChange={(e) => setEditForm((f) => ({ ...f, department_id: e.target.value, department: departments.find((d) => d.id === +e.target.value)?.name || "", hod_department_ids: f.is_hod ? withPrimaryDepartment(f.hod_department_ids, parseDepartmentId(e.target.value)) : f.hod_department_ids }))}><option value="">Select department…</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+            {!editModal.is_superuser && !editModal.is_hod ? <div className="form-group" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label className="label">Reports To HODs</label>
               <div style={{
                 maxHeight: "120px",
@@ -1237,7 +1305,7 @@ export default function StaffPage() {
                           setEditForm((f) => ({
                             ...f,
                             hod_user_ids: e.target.checked
-                              ? [...(f.hod_user_ids || []), id]
+                              ? [id]
                               : (f.hod_user_ids || []).filter((item) => item !== id)
                           }));
                         }}
@@ -1248,8 +1316,8 @@ export default function StaffPage() {
                 })}
                 {hodOptions.length === 0 && <span style={{ color: "var(--muted)", fontSize: "12px" }}>No HODs available</span>}
               </div>
-            </div>
-            <div className="form-group" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            </div> : null}
+            {!editModal.is_superuser && !editModal.is_hod && !editModal.is_tl ? <div className="form-group" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label className="label">Reports To TLs</label>
               <div style={{
                 maxHeight: "120px",
@@ -1274,7 +1342,7 @@ export default function StaffPage() {
                           setEditForm((f) => ({
                             ...f,
                             tl_user_ids: e.target.checked
-                              ? [...(f.tl_user_ids || []), id]
+                              ? [id]
                               : (f.tl_user_ids || []).filter((item) => item !== id)
                           }));
                         }}
@@ -1285,13 +1353,13 @@ export default function StaffPage() {
                 })}
                 {tlOptions.length === 0 && <span style={{ color: "var(--muted)", fontSize: "12px" }}>No TLs available</span>}
               </div>
-            </div>
-            <div className="form-group"><label className="label">System No.</label><input className="input" value={editForm.system_no} onChange={(e) => setEditForm((f) => ({ ...f, system_no: e.target.value }))} /></div>
+            </div> : null}
+            <div className="form-group"><label className="label">System No.</label><input className="input" inputMode="numeric" placeholder="Digits only" value={editForm.system_no} onChange={(e) => setEditForm((f) => ({ ...f, system_no: e.target.value.replace(/[^0-9]/g, "") }))} /></div>
             <div className="form-group"><label className="label">Shift Type</label><select className="input" value={editForm.is_night_shift ? "night" : "day"} onChange={(e) => setEditForm((f) => ({ ...f, is_night_shift: e.target.value === "night" }))}><option value="day">Day Shift</option><option value="night">Night Shift</option></select></div>
-            {isAdmin && <div className="form-group"><label className="label">Base Salary (₹)</label><input className="input" type="number" value={editForm.base_salary} onChange={(e) => setEditForm((f) => ({ ...f, base_salary: e.target.value }))} /></div>}
-            <div className="form-group"><label className="label">Bank Account</label><input className="input" value={editForm.bank_account} onChange={(e) => setEditForm((f) => ({ ...f, bank_account: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">IFSC Code</label><input className="input" value={editForm.ifsc_code} onChange={(e) => setEditForm((f) => ({ ...f, ifsc_code: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">Reset Password (leave blank to keep)</label><PasswordInput autoComplete="new-password" name="staff_reset_password_no_autofill" minLength={6} placeholder="New password…" value={editForm.new_password} onChange={(e) => setEditForm((f) => ({ ...f, new_password: e.target.value }))} /></div>
+            {isAdmin && <div className="form-group"><label className="label">Base Salary (₹)</label><input className="input" type="number" min="0" max="10000000" placeholder="0 - 1,00,00,000" value={editForm.base_salary} onChange={(e) => setEditForm((f) => ({ ...f, base_salary: sanitizeNumericInput(e.target.value, true) }))} /></div>}
+            <div className="form-group"><label className="label">Bank Account</label><input className="input" inputMode="numeric" placeholder="Account number (digits only)" value={editForm.bank_account} onChange={(e) => setEditForm((f) => ({ ...f, bank_account: e.target.value.replace(/[^0-9]/g, "") }))} /></div>
+            <div className="form-group"><label className="label">IFSC Code</label><input className="input" maxLength={11} placeholder="e.g. HDFC0001234" value={editForm.ifsc_code} onChange={(e) => { setBankDetails(null); setEditForm((f) => ({ ...f, ifsc_code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })); }} onBlur={lookupIfsc} />{bankDetails ? <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}><strong style={{ color: "var(--text)" }}>{bankDetails.bank}</strong><br />{bankDetails.branch}{bankDetails.city ? ` · ${bankDetails.city}` : ""}{bankDetails.state ? ` · ${bankDetails.state}` : ""}</div> : null}</div>
+            <div className="form-group"><label className="label">Reset Password (leave blank to keep)</label><PasswordInput autoComplete="new-password" name="staff_reset_password_no_autofill" minLength={8} placeholder="8+ chars, uppercase, digit, special" value={editForm.new_password} onChange={(e) => setEditForm((f) => ({ ...f, new_password: e.target.value }))} /></div>
 
             <div style={{ gridColumn: "1 / -1", marginTop: 8, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: 8 }}>
               <div className="label" style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--primary)" }}>🌴 Annual Leave Quotas (Editable by HR / Admin)</div>
@@ -1374,14 +1442,13 @@ export default function StaffPage() {
 
           <div style={{ height: 1, background: "var(--border)", margin: "20px 0" }} />
 
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 4, marginBottom: 12 }}>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_hr} onChange={(e) => setEditForm((f) => ({ ...f, is_hr: e.target.checked }))} /> HR Role</label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_accounts} onChange={(e) => setEditForm((f) => ({ ...f, is_accounts: e.target.checked }))} /> Accounts</label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_hod} onChange={(e) => setEditForm((f) => ({ ...f, is_hod: e.target.checked, hod_department_ids: e.target.checked ? withPrimaryDepartment(f.hod_department_ids, parseDepartmentId(f.department_id)) : f.hod_department_ids }))} /> HOD</label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_tl} onChange={(e) => setEditForm((f) => ({ ...f, is_tl: e.target.checked }))} /> TL</label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_night_shift} onChange={(e) => setEditForm((f) => ({ ...f, is_night_shift: e.target.checked }))} /> Night Shift</label>
+          {!editModal.is_superuser ? <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 4, marginBottom: 12 }}>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_hr} onChange={(e) => setEditForm((f) => ({ ...f, is_hr: e.target.checked, is_accounts: false, is_hod: false, is_tl: false }))} /> HR Role</label>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_accounts} onChange={(e) => setEditForm((f) => ({ ...f, is_accounts: e.target.checked, is_hr: false, is_hod: false, is_tl: false }))} /> Accounts</label>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_hod} onChange={(e) => setEditForm((f) => ({ ...f, is_hod: e.target.checked, is_hr: false, is_accounts: false, is_tl: false, hod_department_ids: e.target.checked ? withPrimaryDepartment(f.hod_department_ids, parseDepartmentId(f.department_id)) : f.hod_department_ids }))} /> HOD</label>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_tl} onChange={(e) => setEditForm((f) => ({ ...f, is_tl: e.target.checked, is_hr: false, is_accounts: false, is_hod: false }))} /> TL</label>
             <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_active} onChange={(e) => setEditForm((f) => ({ ...f, is_active: e.target.checked }))} /> Active</label>
-          </div>
+          </div> : null}
           {editForm.is_hod && (
             <div style={{ marginBottom: 16 }}>
               <div className="label" style={{ marginBottom: 6 }}>Managed Departments</div>

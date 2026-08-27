@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, getToken } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
@@ -10,6 +11,7 @@ import Loader from "@/components/ui/Loader";
 
 export default function PayslipPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -34,7 +36,13 @@ export default function PayslipPage() {
     setLoading(false);
   }, [month, user?.self_service_access?.can_view_my_payslip, year]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (user?.self_service_access?.can_view_my_payslip === false) {
+      router.replace("/dashboard");
+      return;
+    }
+    load();
+  }, [load, router, user?.self_service_access?.can_view_my_payslip]);
 
   async function downloadOfficialPdf() {
     setDownloading(true);

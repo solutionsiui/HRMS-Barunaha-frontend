@@ -21,6 +21,7 @@ export default function LeavesPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_LEAVE_FORM);
   const [files, setFiles] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const PER_PAGE = 10;
@@ -36,12 +37,15 @@ export default function LeavesPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [d, b] = await Promise.all([
+      const currentYear = new Date().getFullYear();
+      const [d, b, holidayData] = await Promise.all([
         apiFetch("/leave/my"),
         apiFetch("/leave/balance").catch(() => null),
+        apiFetch(`/attendance/holidays?year=${currentYear}`).catch(() => ({ holidays: [] })),
       ]);
-      setLeaves(Array.isArray(d) ? d : []);
+      setLeaves(Array.isArray(d) ? [...d].sort((a, b) => String(b.submitted_on || b.created_at || b.start_date || "").localeCompare(String(a.submitted_on || a.created_at || a.start_date || ""))) : []);
       if (b) setBalance(b);
+      setHolidays(Array.isArray(holidayData?.holidays) ? holidayData.holidays : []);
     } catch (error) {
       setLeaves([]);
       setLoadError(error.message || "Leaves could not be loaded");
@@ -53,6 +57,7 @@ export default function LeavesPage() {
 
   async function applyLeave(e) {
     e.preventDefault(); setSubmitting(true);
+    if (!form.subject.trim()) { showToast("Subject is required", "error"); setSubmitting(false); return; }
     if (!form.start_date || !form.end_date) { showToast("Please select both start and end dates", "error"); setSubmitting(false); return; }
     if (form.end_date < form.start_date) { showToast("End date cannot be before start date", "error"); setSubmitting(false); return; }
     const today = new Date().toISOString().split("T")[0];
@@ -158,7 +163,7 @@ export default function LeavesPage() {
                     <td>{fmtDate(l.start_date)}</td><td>{fmtDate(l.end_date)}</td>
                     <td><span className="chip" style={{ fontWeight: 600 }}>{l.leave_type || "Casual Leave"}</span></td>
                     <td><span className="chip">{l.subject}</span></td>
-                    <td style={{ maxWidth: 200 }}>{l.description}</td>
+                    <td style={{ maxWidth: 240, minWidth: 160, whiteSpace: "normal", overflowWrap: "anywhere" }}>{l.description}</td>
                     <td>
                       {(l.attachments?.length > 0) ? l.attachments.map((url, j) => (
                         <a key={j} href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginRight: 6, fontSize: 12, color: "var(--accent)" }}>
@@ -213,6 +218,10 @@ export default function LeavesPage() {
             const warn = [];
             if (form.start_date) { const d = new Date(form.start_date + "T00:00:00"); if (d.getDay() === 0) warn.push("Start date is a Sunday"); else if (d.getDay() === 6) warn.push("Start date is a Saturday"); }
             if (form.end_date) { const d = new Date(form.end_date + "T00:00:00"); if (d.getDay() === 0) warn.push("End date is a Sunday"); else if (d.getDay() === 6) warn.push("End date is a Saturday"); }
+            const startHoliday = holidays.find((item) => item.date === form.start_date);
+            const endHoliday = holidays.find((item) => item.date === form.end_date && item.date !== form.start_date);
+            if (startHoliday) warn.push(`Start date is ${startHoliday.name || "a holiday"}`);
+            if (endHoliday) warn.push(`End date is ${endHoliday.name || "a holiday"}`);
             return warn.length > 0 ? <div style={{ padding: "8px 12px", background: "rgba(245,158,11,0.15)", borderRadius: 8, fontSize: 13, color: "#f59e0b", marginBottom: 8 }}>⚠️ {warn.join(" · ")} — weekends may not count as working days</div> : null;
           })()}
           <div className="form-group"><label className="label">Description</label><textarea className="input" rows={3} placeholder="Reason for leave…" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>

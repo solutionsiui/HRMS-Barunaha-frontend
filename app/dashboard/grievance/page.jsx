@@ -28,6 +28,8 @@ export default function GrievancePage() {
 
   async function submit(e) {
     e.preventDefault();
+    if (!form.subject.trim()) return showToast("Subject is required", "error");
+    if (!form.description.trim()) return showToast("Description is required", "error");
     try { await apiFetch("/grievances/submit", { method: "POST", body: JSON.stringify(form) }); showToast("Grievance submitted confidentially"); setShowModal(false); setForm(EMPTY_GRIEVANCE_FORM); load(); } catch (e) { showToast(e.message, "error"); }
   }
 
@@ -57,7 +59,7 @@ export default function GrievancePage() {
                   👤 {g.is_anonymous ? "Anonymous Employee" : "Submitted by You"} · 📅 {fmtDate(g.submitted_on)}
                 </div>
                 <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>{g.description}</div>
-                {g.admin_notes && <div style={{ marginTop: 10, padding: "10px 14px", background: "rgba(16,185,129,0.1)", borderRadius: 8, fontSize: 13, color: "#10b981" }}>💬 {g.responded_by_role || "HR"} Response{g.responded_by_name ? ` by ${g.responded_by_name}` : ""}: {g.admin_notes}</div>}
+                {g.admin_notes && <div style={{ marginTop: 10, padding: "10px 14px", background: "rgba(16,185,129,0.1)", borderRadius: 8, fontSize: 13, color: "#10b981" }}>💬 Admin Response{g.responded_by_name ? ` by ${g.responded_by_name}` : ""}: {g.admin_notes}</div>}
               </div>
             </div>
           ))}</div>

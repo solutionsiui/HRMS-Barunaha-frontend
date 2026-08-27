@@ -33,6 +33,7 @@ export default function LeaveApprovalsPage() {
   const [editedLeaveType, setEditedLeaveType] = useState("");
   const [editedStartDate, setEditedStartDate] = useState("");
   const [editedEndDate, setEditedEndDate] = useState("");
+  const [balances, setBalances] = useState([]);
 
   useEffect(() => {
     if (selectedLeave) {
@@ -97,12 +98,14 @@ export default function LeaveApprovalsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pendingData, allData] = await Promise.all([
+      const [pendingData, allData, balanceData] = await Promise.all([
         apiFetch("/leave/pending").catch(() => []),
         apiFetch(filter ? `/leave/all?leave_type=${filter}` : "/leave/all").catch(() => []),
+        apiFetch("/leave/balances").catch(() => ({ balances: [] })),
       ]);
       setPending(Array.isArray(pendingData) ? pendingData : []);
       setHistory(Array.isArray(allData) ? allData : []);
+      setBalances(Array.isArray(balanceData?.balances) ? balanceData.balances : []);
     } catch (error) {
       showToast(error.message, "error");
     } finally {
@@ -170,6 +173,28 @@ export default function LeaveApprovalsPage() {
               {item.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
+          <h2 className="syne" style={{ fontSize: 16, fontWeight: 700 }}>Leave Balancing Sheet</h2>
+          <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Current-year quota, usage, and remaining balance for every active employee.</div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Employee</th><th>Department</th><th>Casual (Used / Remaining)</th><th>Sick (Used / Remaining)</th><th>Privileged (Used / Remaining)</th></tr></thead>
+            <tbody>
+              {balances.map((row) => <tr key={row.emp_id}>
+                <td><b>{row.name}</b><div style={{ color: "var(--muted)", fontSize: 11 }}>{row.emp_id}</div></td>
+                <td>{row.department || "—"}</td>
+                <td>{row.casual.used} / <b>{row.casual.remaining}</b> <span style={{ color: "var(--muted)" }}>(of {row.casual.total})</span></td>
+                <td>{row.sick.used} / <b>{row.sick.remaining}</b> <span style={{ color: "var(--muted)" }}>(of {row.sick.total})</span></td>
+                <td>{row.privileged.used} / <b>{row.privileged.remaining}</b> <span style={{ color: "var(--muted)" }}>(of {row.privileged.total})</span></td>
+              </tr>)}
+              {!loading && balances.length === 0 ? <tr><td colSpan={5} style={{ color: "var(--muted)" }}>No employee balances available.</td></tr> : null}
+            </tbody>
+          </table>
         </div>
       </div>
 

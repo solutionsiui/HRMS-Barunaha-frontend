@@ -98,6 +98,9 @@ export default function AttendanceCalendar({
     if (rawStatus === "leave") {
       return { type: "leave" };
     }
+    if (rawStatus === "pending_leave") {
+      return { type: "pending_leave" };
+    }
     if (rawStatus === "absent" || rawStatus === "a") {
       return { type: "absent" };
     }
@@ -399,6 +402,12 @@ export default function AttendanceCalendar({
             textColor = "#8b5cf6";
             badgeText = "Leave";
             badgeColor = "#8b5cf6";
+          } else if (status?.type === "pending_leave") {
+            bg = "rgba(245, 158, 11, 0.12)";
+            border = "1px solid rgba(245, 158, 11, 0.3)";
+            textColor = "#f59e0b";
+            badgeText = "Pending";
+            badgeColor = "#f59e0b";
           } else if (status?.type === "absent" || (!status && !isFuture && !isSunday)) {
             bg = "rgba(239, 68, 68, 0.08)";
             border = "1px solid rgba(239, 68, 68, 0.2)";

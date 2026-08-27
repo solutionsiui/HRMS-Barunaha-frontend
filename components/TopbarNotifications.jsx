@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bell, CheckCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { apiFetch } from "@/lib/api";
 import { fmtDateTime } from "@/lib/formatters";
 
 export default function TopbarNotifications({ role }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
@@ -44,13 +46,27 @@ export default function TopbarNotifications({ role }) {
   }, [open]);
 
   async function markRead(notification) {
-    if (typeof notification?.id !== "number") return;
     try {
-      await apiFetch(`/notifications/${notification.id}/read`, { method: "POST" });
+      if (typeof notification?.id === "number") {
+        await apiFetch(`/notifications/${notification.id}/read`, { method: "POST" });
+      }
       setNotifications((current) =>
         current.map((item) => (item.id === notification.id ? { ...item, is_read: true } : item))
       );
       setUnreadCount((current) => Math.max(0, current - 1));
+      setOpen(false);
+      const message = String(notification?.message || "").toLowerCase();
+      const route = notification?.meta?.route
+        || (message.includes("resignation") ? (role === "employee" ? "/dashboard/resignation" : "/dashboard/resignations")
+          : message.includes("grievance") ? (role === "admin" || role === "hr" ? "/dashboard/grievances-hr" : "/dashboard/grievance")
+          : message.includes("leave") ? (role === "admin" || role === "hr" ? "/dashboard/leave-approvals" : "/dashboard/leaves")
+          : message.includes("payroll") || message.includes("salary") || message.includes("increment") ? (role === "admin" || role === "accounts" ? "/dashboard/payroll" : "/dashboard/payslip")
+          : message.includes("rating") || message.includes("appraisal") ? "/dashboard/performance"
+          : message.includes("task") ? (role === "hod" || role === "tl" ? "/dashboard/tasks-assign" : "/dashboard/tasks")
+          : message.includes("policy") ? "/dashboard/policies"
+          : message.includes("notice") ? "/dashboard/notices"
+          : "/dashboard");
+      router.push(route);
     } catch {}
   }
 

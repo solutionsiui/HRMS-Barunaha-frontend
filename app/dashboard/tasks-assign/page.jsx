@@ -70,7 +70,11 @@ export default function TasksAssignPage() {
     if (assignForm.assignment_scope === "employee" && !assignForm.emp_id) return showToast("Select an employee", "error");
     if (assignForm.assignment_scope === "department" && !assignForm.department_id) return showToast("Select a department", "error");
     if (!assignForm.title.trim()) return showToast("Task name is required", "error");
+    if (!assignForm.description.trim()) return showToast("Task details are required", "error");
+    if (!Number.isFinite(Number(assignForm.task_count)) || Number(assignForm.task_count) < 1) return showToast("Number of tasks must be at least 1", "error");
     if (!assignForm.deadline) return showToast("Deadline is required", "error");
+    if (new Date(assignForm.deadline) <= new Date()) return showToast("Deadline must be in the future", "error");
+    if (assignForm.file && assignForm.file.size > 50 * 1024 * 1024) return showToast("Attachment cannot exceed 50MB", "error");
     const formData = new FormData();
     formData.append("assignment_scope", assignForm.assignment_scope);
     if (assignForm.assignment_scope === "all") {
@@ -198,7 +202,7 @@ export default function TasksAssignPage() {
                       <td>{t.status === "reviewing" && (
                         <div style={{ display: "flex", gap: 6 }}>
                           {t.revert?.id && <button className="btn-primary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => reviewTask(t.revert.id, "Approved")}>✓ Approve</button>}
-                          {t.revert?.id && <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setReviewTarget(t.revert.id)}>↩ Revise</button>}
+                          {t.revert?.id && <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => { setReviewReason(""); setReviewTarget(t.revert.id); }}>↩ Revise</button>}
                         </div>
                       )}</td>
                     </tr>
@@ -256,7 +260,7 @@ export default function TasksAssignPage() {
                   <td>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <button className="btn-primary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => reviewTask(item.revert_id, "Approved")}>Approve</button>
-                      <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setReviewTarget(item.revert_id)}>Needs Revisions</button>
+                      <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => { setReviewReason(""); setReviewTarget(item.revert_id); }}>Needs Revisions</button>
                       {revHistory.length > 0 && (
                         <button style={{ padding: "4px 10px", fontSize: 11, border: "1px solid var(--border)", borderRadius: 8, background: isExpanded ? "rgba(99,102,241,0.08)" : "transparent", color: "var(--text)", cursor: "pointer" }} onClick={() => setExpandedHistory(isExpanded ? null : item.revert_id)}>
                           {isExpanded ? "▲ Hide" : "▼ History"} ({revHistory.length})
@@ -294,7 +298,7 @@ export default function TasksAssignPage() {
         <Modal title="Assign Task" onClose={() => setShowAssign(false)}
           footer={<><button className="btn-ghost" onClick={() => setShowAssign(false)}>Cancel</button><button className="btn-primary" onClick={assignTask}>Assign</button></>}>
           <div className="form-group">
-            <label className="label">Assign To</label>
+            <label className="label">Assign To <span style={{ color: "#ef4444" }}>*</span></label>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
               {[
                 { value: "all", title: "Entire Team", sub: `${teamMemberCount} employees across all managed departments` },
@@ -332,7 +336,7 @@ export default function TasksAssignPage() {
           <div className="form-row">
             {assignForm.assignment_scope === "department" && (
               <div className="form-group">
-                <label className="label">Department</label>
+                <label className="label">Department <span style={{ color: "#ef4444" }}>*</span></label>
                 <select className="input" value={assignForm.department_id} onChange={(e) => setAssignForm((form) => ({ ...form, department_id: e.target.value }))}>
                   <option value="">Select department</option>
                   {departments.map((department) => (
@@ -345,7 +349,7 @@ export default function TasksAssignPage() {
             )}
             {assignForm.assignment_scope === "employee" && (
               <div className="form-group">
-                <label className="label">Employee</label>
+                <label className="label">Employee <span style={{ color: "#ef4444" }}>*</span></label>
                 <select className="input" value={assignForm.emp_id} onChange={(e) => setAssignForm((form) => ({ ...form, emp_id: e.target.value }))}>
                   <option value="">Select employee</option>
                   {assignees.map((employee) => (
@@ -372,9 +376,9 @@ export default function TasksAssignPage() {
           </div>
           <div className="form-row">
             <div className="form-group"><label className="label">Name of Task <span style={{ color: "#ef4444" }}>*</span></label><input className="input" placeholder="Task name…" value={assignForm.title} onChange={(e) => setAssignForm((f) => ({ ...f, title: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">No. Tasks Provided</label><input className="input" type="number" min="1" value={assignForm.task_count} onChange={(e) => setAssignForm((f) => ({ ...f, task_count: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">No. Tasks Provided <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required type="number" min="1" value={assignForm.task_count} onChange={(e) => setAssignForm((f) => ({ ...f, task_count: e.target.value }))} /></div>
           </div>
-          <div className="form-group"><label className="label">Task Details</label><textarea className="input" rows={3} value={assignForm.description} onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))} /></div>
+          <div className="form-group"><label className="label">Task Details <span style={{ color: "#ef4444" }}>*</span></label><textarea className="input" required rows={3} value={assignForm.description} onChange={(e) => setAssignForm((f) => ({ ...f, description: e.target.value }))} /></div>
           
           <div className="form-group" style={{ marginBottom: 16 }}>
             <label className="label">Attachment (Max 50MB)</label>
@@ -383,8 +387,8 @@ export default function TasksAssignPage() {
         </Modal>
       )}
       {reviewTarget && (
-        <Modal title="Request Revisions" onClose={() => setReviewTarget(null)}
-          footer={<><button className="btn-ghost" onClick={() => setReviewTarget(null)}>Cancel</button><button className="btn-primary" disabled={!reviewReason.trim()} onClick={() => reviewTask(reviewTarget, "Needs Revisions", reviewReason)}>Send Back</button></>}>
+        <Modal title="Request Revisions" onClose={() => { setReviewTarget(null); setReviewReason(""); }}
+          footer={<><button className="btn-ghost" onClick={() => { setReviewTarget(null); setReviewReason(""); }}>Cancel</button><button className="btn-primary" disabled={!reviewReason.trim()} onClick={() => reviewTask(reviewTarget, "Needs Revisions", reviewReason)}>Send Back</button></>}>
           <div className="form-group"><label className="label">Reason</label><textarea className="input" rows={4} value={reviewReason} onChange={(e) => setReviewReason(e.target.value)} /></div>
         </Modal>
       )}

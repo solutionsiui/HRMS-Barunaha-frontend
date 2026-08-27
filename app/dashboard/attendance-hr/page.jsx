@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/useToast";
 import Loader from "@/components/ui/Loader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Modal from "@/components/ui/Modal";
-import { fmtTime } from "@/lib/formatters";
+import { fmtDate, fmtTime } from "@/lib/formatters";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -286,8 +286,9 @@ export default function AttendanceHRPage() {
     return employees.filter((employee) => `${employee.emp_id || ""} ${employee.first_name || ""} ${employee.last_name || ""} ${employee.department || ""}`.toLowerCase().includes(query));
   }, [employees, manualSearch]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options = {}) => {
+    const silent = options?.silent === true;
+    if (!silent) setLoading(true);
     try {
       const machineParams = new URLSearchParams();
       if (machineEmpId) machineParams.set("emp_id", machineEmpId);
@@ -360,15 +361,15 @@ export default function AttendanceHRPage() {
     } catch (error) {
       showToast(error.message, "error");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [allLogsDay, allLogsEmpId, allLogsMode, allLogsMonth, allLogsStatus, isAdmin, isHR, machineDay, machineEmpId, machineMode, machineMonth, showToast, year]);
 
   useEffect(() => {
     load();
-    const interval = setInterval(() => load(), 60000);
+    const interval = setInterval(() => load({ silent: true }), 60000);
     const onVisibility = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") load({ silent: true });
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -480,8 +481,17 @@ export default function AttendanceHRPage() {
   }
 
   async function saveHoliday() {
+    const cleanName = holidayName.trim();
+    if (!cleanName) {
+      showToast("Holiday name is required", "error");
+      return;
+    }
+    if (!/^[A-Za-z0-9 &'.-]+$/.test(cleanName)) {
+      showToast("Holiday name contains unsupported symbols", "error");
+      return;
+    }
     try {
-      await apiFetch("/attendance/holidays", { method: "POST", body: JSON.stringify({ date: selectedDay, name: holidayName }) });
+      await apiFetch("/attendance/holidays", { method: "POST", body: JSON.stringify({ date: selectedDay, name: cleanName }) });
       await load();
       showToast("Holiday saved");
       setSelectedDay(null);
@@ -815,7 +825,7 @@ export default function AttendanceHRPage() {
               <tbody>
                 {paginatedAllLogs.map((record) => (
                   <tr key={record.id} onClick={() => setDetailRecord(record)} style={{ cursor: "pointer" }}>
-                    <td><b>{record.date}</b></td>
+                    <td><b>{fmtDate(record.date)}</b></td>
                     <td><b>{record.employee_name || record.emp_id}</b><div style={{ fontSize: 12, color: "var(--muted)" }}>{record.emp_id}</div></td>
                     <td>{record.department || "—"}</td>
                     <td>{record.punch_in ? <span style={{ color: "#10b981", fontWeight: 600 }}>{fmtTime(record.punch_in)}</span> : <span style={{ color: "var(--muted)" }}>—</span>}</td>
@@ -854,7 +864,7 @@ export default function AttendanceHRPage() {
                 {paginatedEditedRecords.map((record) => (
                   <tr key={record.id} onClick={() => setDetailRecord(record)} style={{ cursor: "pointer" }}>
                     <td><b>{record.employee_name}</b><div style={{ fontSize: 12, color: "var(--muted)" }}>{record.emp_id}</div></td>
-                    <td>{record.date}</td>
+                    <td>{fmtDate(record.date)}</td>
                     <td>{record.check_in || "—"}</td>
                     <td>{record.check_out || "—"}</td>
                     <td><StatusBadge status={record.status} /></td>
@@ -921,7 +931,7 @@ export default function AttendanceHRPage() {
                 {paginatedNotPunchedRecords.map((record) => (
                   <tr key={record.id}>
                     <td><b>{record.employee_name}</b><div style={{ fontSize: 12, color: "var(--muted)" }}>{record.emp_id}</div></td>
-                    <td>{record.date}</td>
+                    <td>{fmtDate(record.date)}</td>
                     <td>{record.check_in ? String(record.check_in).slice(0, 5) : "—"}</td>
                     <td>{record.check_out ? String(record.check_out).slice(0, 5) : "23:30"}</td>
                     <td>{record.auto_punch_out_note || record.edit_reason || "Auto closed due to missing punch-out"}</td>
@@ -1000,7 +1010,7 @@ export default function AttendanceHRPage() {
                     const outMethodStyle = methodBadgeStyle(log.time_out_method);
                     return (
                       <tr key={`${log.emp_id}-${log.date}-${index}`}>
-                        <td>{log.date}</td>
+                        <td>{fmtDate(log.date)}</td>
                         <td>
                           <div>{log.time_in || "—"}</div>
                           {log.time_in_method ? (
@@ -1064,7 +1074,7 @@ export default function AttendanceHRPage() {
 
       {selectedDay ? (
         <Modal
-          title={`Holiday: ${selectedDay}`}
+          title={`${holidays.some((item) => item.date === selectedDay) ? "Edit" : "Add"} Holiday · ${formatLongDate(selectedDay)}`}
           onClose={() => setSelectedDay(null)}
           footer={
             <>
@@ -1075,8 +1085,8 @@ export default function AttendanceHRPage() {
           }
         >
           <div className="form-group">
-            <label className="label">Holiday Name</label>
-            <input className="input" value={holidayName} onChange={(e) => setHolidayName(e.target.value)} />
+            <label className="label">Holiday Name *</label>
+            <input className="input" required value={holidayName} onChange={(e) => setHolidayName(e.target.value)} />
           </div>
         </Modal>
       ) : null}
@@ -1182,7 +1192,7 @@ export default function AttendanceHRPage() {
           ) : null}
           {!manualLockState.error && manualLockState.selected_count > 0 && manualLockState.locked_count === 0 ? (
             <div style={{ marginBottom: 16, fontSize: 12, color: "var(--muted)" }}>
-              Manual edit will apply to {manualLockState.editable_count} employee{manualLockState.editable_count !== 1 ? "s" : ""} on {manualForm.attendance_date}.
+              Manual edit will apply to {manualLockState.editable_count} employee{manualLockState.editable_count !== 1 ? "s" : ""} on {fmtDate(manualForm.attendance_date)}.
             </div>
           ) : null}
           <div className="form-row">
@@ -1206,7 +1216,7 @@ export default function AttendanceHRPage() {
         >
           <div style={{ marginBottom: 12, color: "var(--muted)", fontSize: 13 }}>
             <div><b>Employee:</b> {fixForm.employee || "—"}</div>
-            <div><b>Date:</b> {fixForm.date || "—"}</div>
+            <div><b>Date:</b> {fixForm.date ? fmtDate(fixForm.date) : "—"}</div>
           </div>
           <div className="form-row">
             <div className="form-group"><label className="label">In Time</label><input className="input" type="time" value={fixForm.in_time} onChange={(e) => setFixForm((current) => ({ ...current, in_time: e.target.value }))} /></div>
@@ -1240,7 +1250,7 @@ export default function AttendanceHRPage() {
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>{detailRecord.emp_id}</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{detailRecord.date}</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{fmtDate(detailRecord.date)}</div>
                 <div><StatusBadge status={detailRecord.status} /></div>
               </div>
             </div>
