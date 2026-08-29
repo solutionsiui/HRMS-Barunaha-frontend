@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getToken } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
 import { fmtDate } from "@/lib/formatters";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -46,6 +46,24 @@ export default function ResignationsPage() {
       setComment("");
       load();
     } catch (error) {
+      showToast(error.message, "error");
+    }
+  }
+
+  async function openAttachment(path) {
+    const popup = window.open("", "_blank");
+    try {
+      const response = await fetch(`/api/proxy${path}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!response.ok) throw new Error("Unable to open attachment");
+      const blobUrl = URL.createObjectURL(await response.blob());
+      if (popup) popup.location.replace(blobUrl);
+      else window.open(blobUrl, "_blank");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      if (popup) popup.close();
       showToast(error.message, "error");
     }
   }
@@ -101,7 +119,7 @@ export default function ResignationsPage() {
                       <div style={{ color: "var(--muted)", fontSize: 12 }}>{item.subject}</div>
                     </td>
                     <td>{fmtDate(item.applied_date)}</td>
-                    <td>{item.attached_file ? <a href={item.attached_file} target="_blank" rel="noreferrer">Open</a> : "Required"}</td>
+                    <td>{item.attached_file ? <button type="button" className="btn-ghost" onClick={() => openAttachment(item.attached_file)}>Open</button> : "Required"}</td>
                     <td>
                       <StatusBadge status={(item.hr_status || "pending_hr").toLowerCase()} />
                       <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{item.hr_comment || item.hr_rejection_reason || "Pending"}</div>

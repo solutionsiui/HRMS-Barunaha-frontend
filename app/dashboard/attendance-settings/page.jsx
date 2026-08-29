@@ -54,12 +54,16 @@ export default function AttendanceSettingsPage() {
         apiFetch("/departments/").catch(() => []),
       ]);
       setWfhAssignments(Array.isArray(w) ? w : []);
-      setEmployees(Array.isArray(e) ? e : []);
-      setDepartments(Array.isArray(d) ? d : []);
+      const eligibleEmployees = (Array.isArray(e) ? e : []).filter(
+        (employee) => employee.is_active !== false && !employee.is_superuser
+      );
+      const eligibleDepartmentNames = new Set(eligibleEmployees.map((employee) => employee.department).filter(Boolean));
+      setEmployees(eligibleEmployees);
+      setDepartments((Array.isArray(d) ? d : []).filter((department) => eligibleDepartmentNames.has(department.name)));
 
       setWfhForm((prev) => {
         if (prev.target_value !== "") return prev;
-        const eList = Array.isArray(e) ? e : [];
+        const eList = eligibleEmployees;
         const dJC = Array.from(new Set(eList.map(emp => emp.job_title).filter(Boolean))).sort();
         if (prev.target_type === "job_title" && dJC.length > 0) {
           return { ...prev, target_value: dJC[0] };
@@ -177,7 +181,7 @@ export default function AttendanceSettingsPage() {
               <span>🏠</span> Work From Home (WFH) Grant Engine
             </div>
             <p style={{ color: "var(--muted)", margin: "4px 0 0 0", fontSize: 13 }}>
-              Assign WFH for a specific date to an individual employee or a job category (e.g. 2D Animator, Software Developer, QA, HR, Accounts). Note: 2nd Saturday is automatically set as WFH for all employees.
+              Assign WFH only to active HR-and-below employees. Super Admin and deactivated accounts are excluded. The 2nd Saturday is automatically WFH for eligible employees.
             </p>
           </div>
         </div>
@@ -205,14 +209,14 @@ export default function AttendanceSettingsPage() {
                   let defVal = dynamicJobCategories[0] || "";
                   if (tt === "employee" && employees.length) defVal = employees[0].emp_id;
                   if (tt === "department" && departments.length) defVal = departments[0].name;
-                  if (tt === "all") defVal = "All Employees";
+                  if (tt === "all") defVal = "All Eligible Employees";
                   setWfhForm((f) => ({ ...f, target_type: tt, target_value: defVal }));
                 }}
               >
                 <option value="job_title">Job Category / Role (e.g. 2D Animator, Developer)</option>
                 <option value="employee">Specific Employee</option>
                 <option value="department">Entire Department</option>
-                <option value="all">All Employees</option>
+                <option value="all">All Active Employees (excluding Super Admin)</option>
               </select>
             </div>
 
@@ -236,7 +240,7 @@ export default function AttendanceSettingsPage() {
                 >
                   {employees.map((emp) => (
                     <option key={emp.emp_id} value={emp.emp_id}>
-                      {emp.emp_id} - {emp.user?.first_name} {emp.user?.last_name} ({emp.job_title || emp.department})
+                      {emp.emp_id} - {emp.first_name || emp.user?.first_name || ""} {emp.last_name || emp.user?.last_name || ""} ({emp.job_title || emp.department || "Employee"})
                     </option>
                   ))}
                 </select>
@@ -251,7 +255,7 @@ export default function AttendanceSettingsPage() {
                   ))}
                 </select>
               ) : (
-                <input className="input" value="All Employees" disabled />
+                <input className="input" value="All Active Employees (excluding Super Admin)" disabled />
               )}
             </div>
 

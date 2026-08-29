@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getToken } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
 import { fmtDate } from "@/lib/formatters";
 import Modal from "@/components/ui/Modal";
@@ -64,6 +64,24 @@ export default function ResignationPage() {
     }
   }
 
+  async function openAttachment(path) {
+    const popup = window.open("", "_blank");
+    try {
+      const response = await fetch(`/api/proxy${path}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!response.ok) throw new Error("Unable to open attachment");
+      const blobUrl = URL.createObjectURL(await response.blob());
+      if (popup) popup.location.replace(blobUrl);
+      else window.open(blobUrl, "_blank");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      if (popup) popup.close();
+      showToast(error.message, "error");
+    }
+  }
+
   return (
     <div>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
@@ -100,7 +118,7 @@ export default function ResignationPage() {
                     <td>{fmtDate(item.applied_date)}</td>
                     <td>{item.notice_period_end_date ? fmtDate(item.notice_period_end_date) : "Pending approval"}</td>
                     <td>{item.hr_email || "Pending"}</td>
-                    <td>{item.attached_file ? <a href={item.attached_file} target="_blank" rel="noreferrer">View</a> : "No file"}</td>
+                    <td>{item.attached_file ? <button type="button" className="btn-ghost" onClick={() => openAttachment(item.attached_file)}>View</button> : "No file"}</td>
                     <td><StatusBadge status={(item.status || "pending_hr").toLowerCase()} /></td>
                   </tr>
                 ))}

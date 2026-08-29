@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, backendAssetUrl } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
 import { fmtINR } from "@/lib/formatters";
 import Modal from "@/components/ui/Modal";
@@ -386,12 +386,13 @@ export default function StaffPage() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      await apiFetch(`/employees/${empId}/profile-pic`, {
+      const result = await apiFetch(`/employees/${empId}/profile-pic`, {
         method: "POST",
         body: formData,
         headers: {}, // Let browser set multipart/form-data with boundary
       });
       showToast("Profile picture updated!");
+      setEditModal((current) => current?.emp_id === empId ? { ...current, profile_pic: result?.url || current.profile_pic } : current);
       await load();
     } catch (e) {
       showToast(e.message, "error");
@@ -1377,7 +1378,7 @@ export default function StaffPage() {
             <div>
               <h4 className="syne" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>🖼️ Profile Picture</h4>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: "var(--hover-bg)", backgroundSize: "cover", backgroundImage: editModal.profile_pic ? `url(${editModal.profile_pic})` : "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: "var(--hover-bg)", backgroundSize: "cover", backgroundImage: editModal.profile_pic ? `url(${backendAssetUrl(editModal.profile_pic)})` : "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
                   {!editModal.profile_pic && "👤"}
                 </div>
                 <input type="file" accept="image/*" onChange={(e) => uploadProfilePic(editModal.emp_id, e.target.files[0])} style={{ fontSize: 12 }} />

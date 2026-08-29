@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, backendAssetUrl } from "@/lib/api";
 import { useToast } from "@/hooks/useToast";
 import PasswordInput from "@/components/ui/PasswordInput";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -193,7 +193,7 @@ export default function ProfilePage() {
             <div style={{ position: "relative" }}>
               <div style={{
                 width: 64, height: 64, borderRadius: "50%",
-                backgroundImage: user?.profile_pic ? `url(${user.profile_pic})` : "var(--accent-gradient)",
+                backgroundImage: user?.profile_pic ? `url(${backendAssetUrl(user.profile_pic)})` : "var(--accent-gradient)",
                 backgroundSize: "cover", backgroundPosition: "center",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 26, fontWeight: 800, color: "#fff", flexShrink: 0,

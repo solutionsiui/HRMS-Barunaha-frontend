@@ -15,6 +15,17 @@ import Modal from "@/components/ui/Modal";
 import { Hand } from "lucide-react";
 
 const EMPTY_LEAVE_FORM = { subject: "", description: "", start_date: "", end_date: "", leave_type: "Casual Leave" };
+const PRESENT_ATTENDANCE_STATUSES = new Set(["present", "p", "late", "l", "half_day", "h", "early_leave", "e"]);
+const EXCUSED_ATTENDANCE_STATUSES = new Set(["wfh", "work_from_home", "f", "r", "holiday", "o", "week_off", "wo", "leave", "paid_leave"]);
+
+function isPresentAttendance(record) {
+  return PRESENT_ATTENDANCE_STATUSES.has(String(record?.status || "").toLowerCase()) || Boolean(record?.punch_in);
+}
+
+function isAbsentAttendance(record) {
+  const status = String(record?.status || "").toLowerCase();
+  return !isPresentAttendance(record) && !EXCUSED_ATTENDANCE_STATUSES.has(status);
+}
 
 // ─── Employee Dashboard ───────────────────────────────────────
 function EmployeeDashboard({ user, showToast }) {
@@ -26,6 +37,7 @@ function EmployeeDashboard({ user, showToast }) {
   const [loading, setLoading] = useState(true);
   const [leaveModal, setLeaveModal] = useState(false);
   const [leaveForm, setLeaveForm] = useState(EMPTY_LEAVE_FORM);
+  const [selectedLeave, setSelectedLeave] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -91,6 +103,14 @@ function EmployeeDashboard({ user, showToast }) {
   });
 
   function openQuickLeave(dateStr = "") {
+    const existingLeave = leaves.find((leave) => {
+      const status = String(leave.status || "").toLowerCase();
+      return ["pending", "approved"].includes(status) && dateStr >= leave.start_date && dateStr <= leave.end_date;
+    });
+    if (existingLeave) {
+      setSelectedLeave(existingLeave);
+      return;
+    }
     const todayStr = new Date().toISOString().split("T")[0];
     if (dateStr && dateStr < todayStr) {
       showToast("Leave cannot be applied for a past date", "error");
@@ -195,6 +215,23 @@ function EmployeeDashboard({ user, showToast }) {
           <div className="form-group"><label className="label">Description</label><textarea className="input" rows={3} value={leaveForm.description} onChange={(e) => setLeaveForm((form) => ({ ...form, description: e.target.value }))} /></div>
         </Modal>
       )}
+      {selectedLeave && (
+        <Modal
+          title="Leave Details"
+          onClose={() => setSelectedLeave(null)}
+          footer={<button className="btn-primary" onClick={() => setSelectedLeave(null)}>Close</button>}
+        >
+          <div style={{ display: "grid", gap: 14 }}>
+            <div><span className="label">Status</span><div style={{ marginTop: 6 }}><StatusBadge status={selectedLeave.status} /></div></div>
+            <div><span className="label">Subject</span><div style={{ marginTop: 6 }}>{selectedLeave.subject || "Leave Request"}</div></div>
+            <div className="form-row">
+              <div><span className="label">Start Date</span><div style={{ marginTop: 6 }}>{fmtDate(selectedLeave.start_date)}</div></div>
+              <div><span className="label">End Date</span><div style={{ marginTop: 6 }}>{fmtDate(selectedLeave.end_date)}</div></div>
+            </div>
+            <div><span className="label">Description</span><div style={{ marginTop: 6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{selectedLeave.description || "—"}</div></div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -211,19 +248,18 @@ function HRDashboard({ showToast }) {
     return () => clearInterval(t);
   }, []);
 
-  const presentStatuses = new Set(["present", "late", "half_day", "early_leave"]);
-  const present = today.filter((t) => presentStatuses.has((t.status || "").toLowerCase())).length;
+  const present = today.filter(isPresentAttendance).length;
   const wfh = today.filter((t) => (t.status || "").toLowerCase() === "wfh" || (t.status || "").toLowerCase() === "work_from_home").length;
-  const absent = today.filter((t) => (t.status || "").toLowerCase() === "absent" || (!presentStatuses.has((t.status || "").toLowerCase()) && (t.status || "").toLowerCase() !== "wfh" && (t.status || "").toLowerCase() !== "work_from_home")).length;
+  const absent = today.filter(isAbsentAttendance).length;
   const totalEmployees = today.length;
 
   const filteredToday = today.filter((t) => {
     const st = (t.status || "").toLowerCase();
-    const isPresent = presentStatuses.has(st);
+    const isPresent = isPresentAttendance(t);
     const isWfh = st === "wfh" || st === "work_from_home";
     if (filterType === "present") return isPresent;
     if (filterType === "wfh") return isWfh;
-    if (filterType === "absent") return st === "absent" || (!isPresent && !isWfh);
+    if (filterType === "absent") return isAbsentAttendance(t);
     return true;
   });
 
@@ -330,8 +366,6 @@ function AdminDashboard({ showToast }) {
   const [filterType, setFilterType] = useState("all");
   const router = useRouter();
 
-  const presentStatuses = new Set(["present", "late", "half_day", "early_leave"]);
-
   const loadStats = async () => {
     try {
       const [emp, att, perf, departments] = await Promise.all([
@@ -376,16 +410,13 @@ function AdminDashboard({ showToast }) {
     );
   });
 
-  const presentCount = activeAttendance.filter((item) =>
-    presentStatuses.has((item.status || "").toLowerCase()) || Boolean(item.punch_in)
-  ).length;
-
-  const absentCount = totalEmployees > presentCount ? totalEmployees - presentCount : 0;
+  const presentCount = activeAttendance.filter(isPresentAttendance).length;
+  const absentCount = activeAttendance.filter(isAbsentAttendance).length;
 
   const filteredAttendance = activeAttendance.filter((item) => {
-    const isPresent = presentStatuses.has((item.status || "").toLowerCase()) || Boolean(item.punch_in);
+    const isPresent = isPresentAttendance(item);
     if (filterType === "present") return isPresent;
-    if (filterType === "absent") return !isPresent;
+    if (filterType === "absent") return isAbsentAttendance(item);
     return true;
   });
 
@@ -664,15 +695,14 @@ function HODDashboard({ showToast }) {
 
   const openTasks = tasks.filter((task) => (task.status || "").toLowerCase() !== "completed").length;
 
-  const presentStatuses = new Set(["present", "late", "half_day", "early_leave"]);
-  const present = today.filter((t) => presentStatuses.has((t.status || "").toLowerCase())).length;
-  const absent = today.filter((t) => !presentStatuses.has((t.status || "").toLowerCase())).length;
+  const present = today.filter(isPresentAttendance).length;
+  const absent = today.filter(isAbsentAttendance).length;
   const totalEmployees = today.length;
 
   const filteredToday = today.filter((t) => {
-    const isPresent = presentStatuses.has((t.status || "").toLowerCase());
+    const isPresent = isPresentAttendance(t);
     if (filterType === "present") return isPresent;
-    if (filterType === "absent") return !isPresent;
+    if (filterType === "absent") return isAbsentAttendance(t);
     return true;
   });
 

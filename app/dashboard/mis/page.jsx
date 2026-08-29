@@ -747,7 +747,7 @@ function HRAdminMISView() {
   async function openSubmission(submissionId) {
     try {
       const detail = await apiFetch(`/mis/weekly/${submissionId}`);
-      setSelectedSubmission(detail);
+      setSelectedSubmission(detail?.submission || detail);
     } catch (error) {
       showToast(error.message || "Unable to load MIS report", "error");
     }

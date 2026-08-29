@@ -35,6 +35,7 @@ import {
 
 import { useAuth } from "@/lib/auth-context";
 import { NAV_ITEMS } from "@/lib/constants";
+import { backendAssetUrl } from "@/lib/api";
 import AppLogo from "@/components/AppLogo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 
@@ -109,7 +110,7 @@ export default function Sidebar({ sidebarOpen, onClose }) {
         <div className="sidebar-user">
           {user?.profile_pic ? (
             <div className="sidebar-user__avatar sidebar-user__avatar--image">
-              <img src={user.profile_pic} alt={user?.first_name || "Profile"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={backendAssetUrl(user.profile_pic)} alt={user?.first_name || "Profile"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
           ) : (
             <div className="sidebar-user__avatar">
