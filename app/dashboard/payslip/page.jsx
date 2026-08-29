@@ -126,6 +126,14 @@ export default function PayslipPage() {
                   <div className="payslip-row"><span>Early Leaves</span><strong>{data.early_leaves}</strong></div>
                   <div className="payslip-row"><span>Paid Leaves</span><strong>{data.paid_leaves}</strong></div>
                   <div className="payslip-row"><span>Unpaid Leaves</span><strong>{data.unpaid_leaves}</strong></div>
+                  <div className="payslip-row">
+                    <span>
+                      Holiday Days
+                      {data.holiday_details?.length ? <small style={{ display: "block", color: "#64748b", marginTop: 3 }}>{data.holiday_details.join(", ")}</small> : null}
+                    </span>
+                    <strong>{data.holiday_days || 0}</strong>
+                  </div>
+                  <div className="payslip-row"><span>WFH Days</span><strong>{data.wfh_days || 0}</strong></div>
                   <div className="payslip-row"><span>Absent Deduction</span><strong style={{ color: "#b91c1c" }}>-{fmtINR(data.absent_deduction || 0)}</strong></div>
                   <div className="payslip-row"><span>Half Day Deduction</span><strong style={{ color: "#b91c1c" }}>-{fmtINR(data.half_day_deduction || 0)}</strong></div>
                   <div className="payslip-row"><span>Paid Leave Deduction</span><strong style={{ color: "#b91c1c" }}>-{fmtINR(data.paid_leave_deduction || 0)}</strong></div>

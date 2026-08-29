@@ -2,6 +2,11 @@
 
 import { useState, useMemo } from "react";
 
+function isWfhCalendarEntry(entry) {
+  const name = String(entry?.name || "").trim().toLowerCase();
+  return entry?.day_type === "wfh" || entry?.is_wfh === true || name.includes("wfh") || name === "saturday week-off";
+}
+
 /**
  * AttendanceCalendar - Premium, responsive monthly attendance calendar
  * @param {Array} attendance - List of attendance records
@@ -83,12 +88,15 @@ export default function AttendanceCalendar({
   function getDayStatus(d) {
     if (!d) return null;
     const hol = holMap[d];
-    if (hol) return { type: "holiday", name: hol.name || "Holiday" };
-
     const att = attMap[d];
+    const rawStatus = String(att?.status || "").toLowerCase();
+    if (["wfh", "work_from_home", "f", "r"].includes(rawStatus)) {
+      return { type: "wfh", name: att?.employee_note || att?.edit_reason || "Work From Home" };
+    }
+    if (hol && isWfhCalendarEntry(hol)) return { type: "wfh", name: hol.name || "Work From Home" };
+    if (hol) return { type: "holiday", name: hol.name || "Holiday" };
     if (!att) return null;
 
-    const rawStatus = String(att.status || "").toLowerCase();
     if (rawStatus === "present" || rawStatus === "p") {
       return { type: "present", time: att.check_in || att.punch_in };
     }
@@ -386,6 +394,12 @@ export default function AttendanceCalendar({
             textColor = "#3b82f6";
             badgeText = status.name || "Holiday";
             badgeColor = "#3b82f6";
+          } else if (status?.type === "wfh") {
+            bg = "rgba(6, 182, 212, 0.12)";
+            border = "1px solid rgba(6, 182, 212, 0.35)";
+            textColor = "#0891b2";
+            badgeText = "WFH";
+            badgeColor = "#06b6d4";
           } else if (status?.type === "present") {
             bg = "rgba(16, 185, 129, 0.12)";
             border = "1px solid rgba(16, 185, 129, 0.3)";
@@ -425,6 +439,8 @@ export default function AttendanceCalendar({
               title={
                 status?.type === "holiday"
                   ? `Holiday: ${status.name}`
+                  : status?.type === "wfh"
+                  ? `Work From Home: ${status.name || "WFH"}`
                   : status?.type === "present"
                   ? `Present ${status.time ? `(${status.time})` : ""}`
                   : status?.type === "late"
@@ -523,6 +539,9 @@ export default function AttendanceCalendar({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#3b82f6" }} /> Holiday
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#06b6d4" }} /> WFH
         </div>
       </div>
     </div>

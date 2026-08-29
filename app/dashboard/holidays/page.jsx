@@ -148,11 +148,12 @@ export default function HolidaysPage() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Name</th><th>Action</th></tr></thead>
+              <thead><tr><th>Date</th><th>Type</th><th>Name</th><th>Action</th></tr></thead>
               <tbody>
                 {holidays.map((holiday) => (
                   <tr key={holiday.id}>
                     <td>{fmtDate(holiday.date)}</td>
+                    <td><span className="badge">{holiday.day_type === "wfh" || holiday.is_wfh ? "Work From Home" : "Holiday"}</span></td>
                     <td>{holiday.name}</td>
                     <td>{canManage ? <button className="btn-danger" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => deleteHoliday(holiday.id)}>Delete</button> : "View only"}</td>
                   </tr>

@@ -163,7 +163,7 @@ function ManualAttendanceCalendar({ monthDate, selectedIso, onSelect, onMonthCha
               }}
               title={isFuture ? "Future dates are locked" : (iso || "")}
             >
-              {day || ""}
+              <span>{day || ""}</span>
             </button>
           );
         })}
@@ -192,18 +192,25 @@ function MonthGrid({ year, monthIndex, holidays, canSelect, includeSaturdays, on
           const isSunday = weekday === 0;
           const isSaturday = weekday === 6;
           const holiday = iso ? holidays.find((item) => item.date === iso) : null;
+          const holidayName = String(holiday?.name || "").toLowerCase();
+          const isWfhMarker = Boolean(holiday && (holiday.day_type === "wfh" || holiday.is_wfh || holidayName.includes("wfh") || holidayName === "saturday week-off"));
           const isSaturdayWeekOffHoliday = Boolean(holiday && holiday.name === "Saturday Week-Off");
-          const showHoliday = Boolean(holiday) && !(isSaturdayWeekOffHoliday && !includeSaturdays);
+          const showHoliday = Boolean(holiday) && !isWfhMarker && !(isSaturdayWeekOffHoliday && !includeSaturdays);
+          const showWfh = Boolean(holiday) && isWfhMarker;
           const isDefaultSunday = !holiday && isSunday;
           const isSaturdayMarker = includeSaturdays && !showHoliday && !isSunday && isSaturday;
-          const bg = showHoliday
+          const bg = showWfh
+            ? "rgba(6,182,212,0.12)"
+            : showHoliday
             ? "rgba(59,130,246,0.12)"
             : isDefaultSunday
               ? "rgba(234,88,12,0.14)"
               : isSaturdayMarker
                 ? "rgba(99,102,241,0.10)"
                 : "var(--surface2)";
-          const fg = showHoliday
+          const fg = showWfh
+            ? "#0891b2"
+            : showHoliday
             ? "#2563eb"
             : isDefaultSunday
               ? "#c2410c"
@@ -216,7 +223,7 @@ function MonthGrid({ year, monthIndex, holidays, canSelect, includeSaturdays, on
               type="button"
               disabled={!day}
               onClick={() => iso && canSelect && onPick(iso)}
-              title={showHoliday ? holiday.name : (isDefaultSunday ? "Sunday (Default Week-Off)" : (isSaturdayMarker ? "Saturday (Selected)" : (isSaturday ? "Saturday" : "")))}
+              title={showWfh ? `Work From Home: ${holiday.name}` : (showHoliday ? holiday.name : (isDefaultSunday ? "Sunday (Default Week-Off)" : (isSaturdayMarker ? "Saturday (Selected)" : (isSaturday ? "Saturday" : ""))))}
               style={{
                 minHeight: 42,
                 borderRadius: 10,
@@ -225,10 +232,11 @@ function MonthGrid({ year, monthIndex, holidays, canSelect, includeSaturdays, on
                 color: fg,
                 cursor: day && canSelect ? "pointer" : "default",
                 fontSize: 12,
-                fontWeight: (showHoliday || isDefaultSunday) ? 700 : 500,
+                fontWeight: (showWfh || showHoliday || isDefaultSunday) ? 700 : 500,
               }}
             >
-              {day || ""}
+              <span>{day || ""}</span>
+              {showWfh ? <span style={{ display: "block", fontSize: 8, marginTop: 2 }}>WFH</span> : null}
             </button>
           );
         })}
