@@ -61,11 +61,9 @@ function EmployeeDashboard({ user, showToast }) {
   }, []);
 
   async function submitQuickLeave() {
-    const todayStr = new Date().toISOString().split("T")[0];
     if (!leaveForm.subject.trim()) { showToast("Subject is required", "error"); return; }
     if (!leaveForm.start_date || !leaveForm.end_date) { showToast("Please select both start and end dates", "error"); return; }
     if (leaveForm.end_date < leaveForm.start_date) { showToast("End date cannot be before start date", "error"); return; }
-    if (leaveForm.start_date < todayStr) { showToast("Start date cannot be in the past", "error"); return; }
     try {
       const body = new FormData();
       body.append("subject", leaveForm.subject.trim());
@@ -109,11 +107,6 @@ function EmployeeDashboard({ user, showToast }) {
     });
     if (existingLeave) {
       setSelectedLeave(existingLeave);
-      return;
-    }
-    const todayStr = new Date().toISOString().split("T")[0];
-    if (dateStr && dateStr < todayStr) {
-      showToast("Leave cannot be applied for a past date", "error");
       return;
     }
     setLeaveForm({ ...EMPTY_LEAVE_FORM, start_date: dateStr, end_date: dateStr });
@@ -209,8 +202,8 @@ function EmployeeDashboard({ user, showToast }) {
           </div>
           <div className="form-group"><label className="label">Subject <span style={{ color: "#ef4444" }}>*</span></label><input className="input" required value={leaveForm.subject} onChange={(e) => setLeaveForm((form) => ({ ...form, subject: e.target.value }))} /></div>
           <div className="form-row">
-            <div className="form-group"><label className="label">Start Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" required min={new Date().toISOString().split("T")[0]} value={leaveForm.start_date} onChange={(e) => setLeaveForm((form) => ({ ...form, start_date: e.target.value }))} /></div>
-            <div className="form-group"><label className="label">End Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" required min={leaveForm.start_date || new Date().toISOString().split("T")[0]} value={leaveForm.end_date} onChange={(e) => setLeaveForm((form) => ({ ...form, end_date: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">Start Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" required value={leaveForm.start_date} onChange={(e) => setLeaveForm((form) => ({ ...form, start_date: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">End Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" required min={leaveForm.start_date || undefined} value={leaveForm.end_date} onChange={(e) => setLeaveForm((form) => ({ ...form, end_date: e.target.value }))} /></div>
           </div>
           <div className="form-group"><label className="label">Description</label><textarea className="input" rows={3} value={leaveForm.description} onChange={(e) => setLeaveForm((form) => ({ ...form, description: e.target.value }))} /></div>
         </Modal>

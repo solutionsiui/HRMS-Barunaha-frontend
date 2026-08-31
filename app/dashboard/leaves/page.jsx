@@ -60,8 +60,6 @@ export default function LeavesPage() {
     if (!form.subject.trim()) { showToast("Subject is required", "error"); setSubmitting(false); return; }
     if (!form.start_date || !form.end_date) { showToast("Please select both start and end dates", "error"); setSubmitting(false); return; }
     if (form.end_date < form.start_date) { showToast("End date cannot be before start date", "error"); setSubmitting(false); return; }
-    const today = new Date().toISOString().split("T")[0];
-    if (form.start_date < today) { showToast("Start date cannot be in the past", "error"); setSubmitting(false); return; }
     try {
       const fd = new FormData();
       fd.append("subject", form.subject || `${form.leave_type} request`);
@@ -107,8 +105,6 @@ export default function LeavesPage() {
   }
 
   const quotas = balance?.annual_quotas;
-  const todayDate = new Date().toISOString().split("T")[0];
-
   return (
     <div>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
@@ -211,8 +207,8 @@ export default function LeavesPage() {
           </div>
           <div className="form-group"><label className="label">Subject <span style={{ color: "#ef4444" }}>*</span></label><input className="input" placeholder="e.g. Family function, Medical, etc." value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} required /></div>
           <div className="form-row">
-            <div className="form-group"><label className="label">Start Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" min={todayDate} value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} required /></div>
-            <div className="form-group"><label className="label">End Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" min={form.start_date || todayDate} value={form.end_date} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} required /></div>
+            <div className="form-group"><label className="label">Start Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} required /></div>
+            <div className="form-group"><label className="label">End Date <span style={{ color: "#ef4444" }}>*</span></label><input className="input" type="date" min={form.start_date || undefined} value={form.end_date} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} required /></div>
           </div>
           {(() => {
             const warn = [];

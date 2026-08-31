@@ -15,6 +15,7 @@ import { validateEmail, validateStrongPassword, validateBaseSalary, sanitizeNume
 export default function StaffPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
+  const canEditLeaveBalances = isAdmin || role === "hr";
 
   const [staff, setStaff] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -1031,6 +1032,11 @@ export default function StaffPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {canEditLeaveBalances && (
+                          <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => openQuotaEdit(e)}>
+                            🌴 Leave Balance
+                          </button>
+                        )}
                         {isAdmin && (
                           <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => openEdit(e)}>
                             ✏️ Edit
