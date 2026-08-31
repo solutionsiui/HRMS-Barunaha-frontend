@@ -811,6 +811,8 @@ export default function AttendanceHRPage() {
                 <option value="half_day">Half Day</option>
                 <option value="absent">Absent</option>
                 <option value="paid_leave">Paid Leave</option>
+                <option value="wfh">Work From Home</option>
+                <option value="holiday">Holiday</option>
               </select>
 
               <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={load}>Refresh</button>

@@ -27,6 +27,8 @@ export default function StatusBadge({ status, label }) {
     extra_pay: ["#f59e0b", "Extra Pay"],
     wfh: ["#06b6d4", "Work From Home"],
     work_from_home: ["#06b6d4", "Work From Home"],
+    paid_leave: ["#10b981", "Paid Leave"],
+    holiday: ["#64748b", "Holiday"],
   };
   const [color, defaultLabel] = map[status?.toLowerCase()] || ["#64748b", status || "—"];
   return (
