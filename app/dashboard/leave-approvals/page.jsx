@@ -36,7 +36,10 @@ export default function LeaveApprovalsPage() {
   const [editedEndDate, setEditedEndDate] = useState("");
   const [balances, setBalances] = useState([]);
   const [quotaEditor, setQuotaEditor] = useState(null);
-  const [quotaForm, setQuotaForm] = useState({ cl_quota: "", sl_quota: "", pl_quota: "" });
+  const [quotaForm, setQuotaForm] = useState({
+    cl_quota: "", sl_quota: "", pl_quota: "",
+    cl_taken: "", sl_taken: "", pl_taken: "",
+  });
   const [quotaSaving, setQuotaSaving] = useState(false);
 
   function openQuotaEditor(row) {
@@ -45,14 +48,18 @@ export default function LeaveApprovalsPage() {
       cl_quota: String(row.casual.total),
       sl_quota: String(row.sick.total),
       pl_quota: String(row.privileged.total),
+      cl_taken: String(row.casual.used),
+      sl_taken: String(row.sick.used),
+      pl_taken: String(row.privileged.used),
     });
   }
 
   async function saveLeaveQuotas() {
     if (!quotaEditor) return;
-    const values = [quotaForm.cl_quota, quotaForm.sl_quota, quotaForm.pl_quota].map(Number);
-    if (values.some((value) => !Number.isInteger(value) || value < 0)) {
-      showToast("Leave quotas must be whole numbers of zero or more", "error");
+    const quotaVals = [quotaForm.cl_quota, quotaForm.sl_quota, quotaForm.pl_quota].map(Number);
+    const takenVals = [quotaForm.cl_taken, quotaForm.sl_taken, quotaForm.pl_taken].map(Number);
+    if ([...quotaVals, ...takenVals].some((value) => !Number.isInteger(value) || value < 0)) {
+      showToast("Quotas and taken leaves must be whole numbers of zero or more", "error");
       return;
     }
     setQuotaSaving(true);
@@ -60,9 +67,12 @@ export default function LeaveApprovalsPage() {
       await apiFetch(`/leave/quota/${quotaEditor.emp_id}`, {
         method: "PUT",
         body: JSON.stringify({
-          cl_quota: values[0],
-          sl_quota: values[1],
-          pl_quota: values[2],
+          cl_quota: quotaVals[0],
+          sl_quota: quotaVals[1],
+          pl_quota: quotaVals[2],
+          cl_taken: takenVals[0],
+          sl_taken: takenVals[1],
+          pl_taken: takenVals[2],
         }),
       });
       showToast(`Leave quotas updated for ${quotaEditor.name || quotaEditor.emp_id}`);
@@ -223,14 +233,24 @@ export default function LeaveApprovalsPage() {
         </div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Employee</th><th>Department</th><th>Casual (Used / Remaining)</th><th>Sick (Used / Remaining)</th><th>Privileged (Used / Remaining)</th>{canEditLeaveQuotas ? <th>Action</th> : null}</tr></thead>
+            <thead><tr><th>Employee</th><th>Department</th><th>Casual (Taken / Total)</th><th>Sick (Taken / Total)</th><th>Privileged (Taken / Total)</th>{canEditLeaveQuotas ? <th>Action</th> : null}</tr></thead>
             <tbody>
               {balances.map((row) => <tr key={row.emp_id}>
-                <td><b>{row.name}</b><div style={{ color: "var(--muted)", fontSize: 11 }}>{row.emp_id}</div></td>
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <b>{row.name}</b>
+                    {row.is_in_probation ? (
+                      <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontWeight: 600 }}>
+                        Probation
+                      </span>
+                    ) : null}
+                  </div>
+                  <div style={{ color: "var(--muted)", fontSize: 11 }}>{row.emp_id}</div>
+                </td>
                 <td>{row.department || "—"}</td>
-                <td>{row.casual.used} / <b>{row.casual.remaining}</b> <span style={{ color: "var(--muted)" }}>(of {row.casual.total})</span></td>
-                <td>{row.sick.used} / <b>{row.sick.remaining}</b> <span style={{ color: "var(--muted)" }}>(of {row.sick.total})</span></td>
-                <td>{row.privileged.used} / <b>{row.privileged.remaining}</b> <span style={{ color: "var(--muted)" }}>(of {row.privileged.total})</span></td>
+                <td><b>{row.casual.used} / {row.casual.total}</b> <span style={{ color: "var(--muted)", fontSize: 11, marginLeft: 4 }}>({row.casual.remaining} left)</span></td>
+                <td><b>{row.sick.used} / {row.sick.total}</b> <span style={{ color: "var(--muted)", fontSize: 11, marginLeft: 4 }}>({row.sick.remaining} left)</span></td>
+                <td><b>{row.privileged.used} / {row.privileged.total}</b> <span style={{ color: "var(--muted)", fontSize: 11, marginLeft: 4 }}>({row.privileged.remaining} left)</span></td>
                 {canEditLeaveQuotas ? <td><button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => openQuotaEditor(row)}>Edit Quotas</button></td> : null}
               </tr>)}
               {!loading && balances.length === 0 ? <tr><td colSpan={canEditLeaveQuotas ? 6 : 5} style={{ color: "var(--muted)" }}>No employee balances available.</td></tr> : null}
@@ -393,22 +413,54 @@ export default function LeaveApprovalsPage() {
       {quotaEditor && (
         <div className="modal-overlay" onClick={() => !quotaSaving && setQuotaEditor(null)} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }}>
           <div className="modal-content" onClick={(event) => event.stopPropagation()} style={{ background: "var(--card-bg, var(--surface))", padding: 24, borderRadius: 12, width: "100%", maxWidth: 560, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
-            <h2 className="syne" style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Edit Annual Leave Quotas</h2>
+            <h2 className="syne" style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Edit Leave Quotas & Taken Count</h2>
             <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 18 }}>{quotaEditor.name} ({quotaEditor.emp_id}) · {quotaEditor.department || "No department"}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {[
-                ["cl_quota", "Casual Leave", quotaEditor.casual],
-                ["sl_quota", "Sick Leave", quotaEditor.sick],
-                ["pl_quota", "Privileged Leave", quotaEditor.privileged],
-              ].map(([field, label, balance]) => (
-                <div className="form-group" key={field}>
-                  <label className="label">{label} Quota</label>
-                  <input className="input" type="number" min="0" step="1" value={quotaForm[field]} onChange={(event) => setQuotaForm((current) => ({ ...current, [field]: event.target.value }))} />
-                  <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>Used: {balance.used} · Remaining: {balance.remaining}</div>
-                </div>
-              ))}
+                ["Casual Leave", "cl_quota", "cl_taken", quotaEditor.casual],
+                ["Sick Leave", "sl_quota", "sl_taken", quotaEditor.sick],
+                ["Privileged Leave", "pl_quota", "pl_taken", quotaEditor.privileged],
+              ].map(([label, qField, tField, balance]) => {
+                const total = Number(quotaForm[qField]) || 0;
+                const taken = Number(quotaForm[tField]) || 0;
+                const left = Math.max(0, total - taken);
+                return (
+                  <div key={label} style={{ padding: 12, borderRadius: 8, border: "1px solid var(--border)", background: "rgba(255,255,255,0.03)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
+                      <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                        Display: <b style={{ color: "var(--foreground)" }}>{taken} / {total}</b> ({left} left)
+                      </span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="label" style={{ fontSize: 11 }}>Total Quota</label>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={quotaForm[qField]}
+                          onChange={(event) => setQuotaForm((current) => ({ ...current, [qField]: event.target.value }))}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="label" style={{ fontSize: 11 }}>Taken Leaves</label>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={quotaForm[tField]}
+                          onChange={(event) => setQuotaForm((current) => ({ ...current, [tField]: event.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>Saving recalculates the employee’s remaining balance using approved leave usage for the current year.</div>
+            <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 12 }}>Editing Taken Leaves increases used leaves (e.g. 4/10) without deducting total annual entitlement.</div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
               <button className="btn-ghost" disabled={quotaSaving} onClick={() => setQuotaEditor(null)}>Cancel</button>
               <button className="btn-primary" disabled={quotaSaving} onClick={saveLeaveQuotas}>{quotaSaving ? "Saving…" : "Save Quotas"}</button>

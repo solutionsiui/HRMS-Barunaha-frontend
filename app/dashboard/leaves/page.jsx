@@ -60,6 +60,11 @@ export default function LeavesPage() {
     if (!form.subject.trim()) { showToast("Subject is required", "error"); setSubmitting(false); return; }
     if (!form.start_date || !form.end_date) { showToast("Please select both start and end dates", "error"); setSubmitting(false); return; }
     if (form.end_date < form.start_date) { showToast("End date cannot be before start date", "error"); setSubmitting(false); return; }
+    if (balance?.is_in_probation && form.leave_type !== "Casual Leave") {
+      showToast("Only Casual Leave can be applied during probation period.", "error");
+      setSubmitting(false);
+      return;
+    }
     try {
       const fd = new FormData();
       fd.append("subject", form.subject || `${form.leave_type} request`);
@@ -115,6 +120,15 @@ export default function LeavesPage() {
         <button className="btn-primary" onClick={() => { setForm(EMPTY_LEAVE_FORM); setFiles([]); setShowModal(true); }}>+ Apply Leave</button>
       </div>
 
+      {balance?.is_in_probation && (
+        <div style={{ padding: "12px 16px", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 10, fontSize: 13, color: "#f59e0b", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>⏳</span>
+          <div>
+            <b>Probation Period Active</b>: Your probation ends on <b>{balance.probation_end_date ? fmtDate(balance.probation_end_date) : "the scheduled date"}</b>. Only <b>Casual Leave</b> can be applied during probation. Sick Leave and Privileged Leave will automatically become available once probation concludes.
+          </div>
+        </div>
+      )}
+
       <div className="grid-stats" style={{ marginBottom: 24 }}>
         <div className="card" style={{ padding: "18px 20px" }}>
           <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>CASUAL LEAVE (CL)</div>
@@ -125,8 +139,11 @@ export default function LeavesPage() {
             Used: {quotas?.casual?.used ?? 0} days{(quotas?.casual?.deduction ?? 0) > 0 && <span> · HR Adjusted: −{quotas.casual.deduction}</span>}
           </div>
         </div>
-        <div className="card" style={{ padding: "18px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>SICK LEAVE (SL)</div>
+        <div className="card" style={{ padding: "18px 20px", opacity: balance?.is_in_probation ? 0.75 : 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>SICK LEAVE (SL)</div>
+            {balance?.is_in_probation && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontWeight: 600 }}>Locked (Probation)</span>}
+          </div>
           <div className="syne" style={{ fontSize: 24, fontWeight: 800, color: "#6366f1", marginTop: 4 }}>
             {quotas?.sick?.remaining ?? 12} <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>/ {quotas?.sick?.total ?? 12} days left</span>
           </div>
@@ -134,8 +151,11 @@ export default function LeavesPage() {
             Used: {quotas?.sick?.used ?? 0} days{(quotas?.sick?.deduction ?? 0) > 0 && <span> · HR Adjusted: −{quotas.sick.deduction}</span>}
           </div>
         </div>
-        <div className="card" style={{ padding: "18px 20px" }}>
-          <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>PRIVILEGED LEAVE (PL)</div>
+        <div className="card" style={{ padding: "18px 20px", opacity: balance?.is_in_probation ? 0.75 : 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>PRIVILEGED LEAVE (PL)</div>
+            {balance?.is_in_probation && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontWeight: 600 }}>Locked (Probation)</span>}
+          </div>
           <div className="syne" style={{ fontSize: 24, fontWeight: 800, color: "#f59e0b", marginTop: 4 }}>
             {quotas?.privileged?.remaining ?? 15} <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>/ {quotas?.privileged?.total ?? 15} days left</span>
           </div>
@@ -198,11 +218,20 @@ export default function LeavesPage() {
       {showModal && (
         <Modal title="Apply for Leave" onClose={() => setShowModal(false)}
           footer={<><button className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button><button className="btn-primary" onClick={applyLeave} disabled={submitting}>{submitting ? "Submitting…" : "Apply Leave"}</button></>}>
+          {balance?.is_in_probation && (
+            <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, fontSize: 13, color: "#f59e0b", marginBottom: 14 }}>
+              ⏳ <b>Probation Active</b>: You can only apply for <b>Casual Leave</b> until your probation period concludes on {balance.probation_end_date ? fmtDate(balance.probation_end_date) : "the scheduled date"}.
+            </div>
+          )}
           <div className="form-group"><label className="label">Leave Category</label>
             <select className="input" value={form.leave_type} onChange={(e) => setForm((f) => ({ ...f, leave_type: e.target.value }))}>
               <option value="Casual Leave">Casual Leave (CL - 10/yr)</option>
-              <option value="Sick Leave">Sick Leave (SL - 12/yr)</option>
-              <option value="Privileged Leave">Privileged Leave (PL - 15/yr)</option>
+              <option value="Sick Leave" disabled={balance?.is_in_probation}>
+                Sick Leave (SL - 12/yr){balance?.is_in_probation ? " — Locked (Probation)" : ""}
+              </option>
+              <option value="Privileged Leave" disabled={balance?.is_in_probation}>
+                Privileged Leave (PL - 15/yr){balance?.is_in_probation ? " — Locked (Probation)" : ""}
+              </option>
             </select>
           </div>
           <div className="form-group"><label className="label">Subject <span style={{ color: "#ef4444" }}>*</span></label><input className="input" placeholder="e.g. Family function, Medical, etc." value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} required /></div>

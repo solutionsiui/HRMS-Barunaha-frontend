@@ -15,7 +15,9 @@ import { validateEmail, validateStrongPassword, validateBaseSalary, sanitizeNume
 export default function StaffPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
-  const canEditLeaveBalances = isAdmin || role === "hr";
+  const isHR = role === "hr";
+  const canEditStaff = isAdmin || isHR;
+  const canEditLeaveBalances = isAdmin || isHR;
 
   const [staff, setStaff] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -32,12 +34,14 @@ export default function StaffPage() {
     emp_id: "", department_id: "", is_hr: false, is_accounts: false, is_hod: false, is_tl: false, is_superuser: false,
     machine_user_id: "", base_salary: "", hod_department_ids: [],
     hod_user_id: "", tl_user_id: "", system_no: "", is_night_shift: false,
+    joining_date: "", probation_end_date: "",
     hod_user_ids: [], tl_user_ids: [], cl_quota: 10, sl_quota: 12, pl_quota: 15,
   });
   const [editForm, setEditForm] = useState({
     first_name: "", last_name: "", email: "", department: "", department_id: "",
     is_hr: false, is_accounts: false, is_hod: false, is_tl: false,
     machine_user_id: "", base_salary: "", bank_account: "", ifsc_code: "",
+    joining_date: "", probation_end_date: "",
     new_password: "", is_active: true, hod_department_ids: [],
     hod_user_id: "", tl_user_id: "", system_no: "", is_night_shift: false,
     hod_user_ids: [], tl_user_ids: [], cl_quota: 10, sl_quota: 12, pl_quota: 15,
@@ -259,6 +263,8 @@ export default function StaffPage() {
         cl_quota: form.cl_quota !== "" && form.cl_quota !== null && form.cl_quota !== undefined ? Number(form.cl_quota) : 10,
         sl_quota: form.sl_quota !== "" && form.sl_quota !== null && form.sl_quota !== undefined ? Number(form.sl_quota) : 12,
         pl_quota: form.pl_quota !== "" && form.pl_quota !== null && form.pl_quota !== undefined ? Number(form.pl_quota) : 15,
+        joining_date: form.joining_date || undefined,
+        probation_end_date: form.probation_end_date || undefined,
       };
       await apiFetch("/employees/", {
         method: "POST",
@@ -271,6 +277,7 @@ export default function StaffPage() {
         emp_id: "", department_id: "", is_hr: false, is_accounts: false, is_hod: false, is_tl: false, is_superuser: false,
         machine_user_id: "", base_salary: "", hod_department_ids: [],
         hod_user_id: "", tl_user_id: "", system_no: "", is_night_shift: false,
+        joining_date: "", probation_end_date: "",
         hod_user_ids: [], tl_user_ids: [], cl_quota: 10, sl_quota: 12, pl_quota: 15,
       });
       await load();
@@ -353,6 +360,8 @@ export default function StaffPage() {
         cl_quota: editForm.cl_quota !== "" && editForm.cl_quota !== null && editForm.cl_quota !== undefined ? Number(editForm.cl_quota) : 10,
         sl_quota: editForm.sl_quota !== "" && editForm.sl_quota !== null && editForm.sl_quota !== undefined ? Number(editForm.sl_quota) : 12,
         pl_quota: editForm.pl_quota !== "" && editForm.pl_quota !== null && editForm.pl_quota !== undefined ? Number(editForm.pl_quota) : 15,
+        joining_date: editForm.joining_date || null,
+        probation_end_date: editForm.probation_end_date || null,
         new_password: editForm.new_password?.trim() || undefined,
         is_active: !!editForm.is_active,
       };
@@ -571,6 +580,8 @@ export default function StaffPage() {
       cl_quota:     emp.cl_quota    ?? 10,
       sl_quota:     emp.sl_quota    ?? 12,
       pl_quota:     emp.pl_quota    ?? 15,
+      joining_date: emp.joining_date || "",
+      probation_end_date: emp.probation_end_date || "",
       fingerprint_registered: emp.fingerprint_registered || false,
       face_registered: emp.face_registered || false,
       card_number: emp.card_number || "",
@@ -1017,6 +1028,20 @@ export default function StaffPage() {
                       <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
                         System: {e.system_no || "Not set"} · Shift: {e.is_night_shift ? "Night" : "Day"}
                       </div>
+                      {e.joining_date && (
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                          Joined: {e.joining_date}
+                          {e.is_in_probation ? (
+                            <span style={{ marginLeft: 6, padding: "1px 5px", borderRadius: 4, background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontWeight: 600, fontSize: 10 }}>
+                              Probation (until {e.probation_end_date})
+                            </span>
+                          ) : e.probation_end_date ? (
+                            <span style={{ marginLeft: 6, color: "#10b981", fontSize: 10 }}>
+                              ✓ Confirmed
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
                     </td>
                     <td>{e.department}</td>
                     <td>
@@ -1037,7 +1062,7 @@ export default function StaffPage() {
                             🌴 Leave Balance
                           </button>
                         )}
-                        {isAdmin && (
+                        {canEditStaff && (
                           <button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => openEdit(e)}>
                             ✏️ Edit
                           </button>
@@ -1198,6 +1223,27 @@ export default function StaffPage() {
                 <option value="day">☀️ Day Shift</option>
                 <option value="night">🌙 Night Shift</option>
               </select>
+            </div>
+
+            <div className="form-group">
+              <label className="label">Joining Date</label>
+              <input
+                className="input"
+                type="date"
+                value={form.joining_date || ""}
+                onChange={(e) => setForm((f) => ({ ...f, joining_date: e.target.value }))}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="label">Probation Period End Date</label>
+              <input
+                className="input"
+                type="date"
+                min={form.joining_date || undefined}
+                value={form.probation_end_date || ""}
+                onChange={(e) => setForm((f) => ({ ...f, probation_end_date: e.target.value }))}
+              />
             </div>
 
             <div style={{ gridColumn: "1 / -1", marginTop: 8, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: 8 }}>
@@ -1363,6 +1409,8 @@ export default function StaffPage() {
             </div> : null}
             <div className="form-group"><label className="label">System No.</label><input className="input" inputMode="numeric" placeholder="Digits only" value={editForm.system_no} onChange={(e) => setEditForm((f) => ({ ...f, system_no: e.target.value.replace(/[^0-9]/g, "") }))} /></div>
             <div className="form-group"><label className="label">Shift Type</label><select className="input" value={editForm.is_night_shift ? "night" : "day"} onChange={(e) => setEditForm((f) => ({ ...f, is_night_shift: e.target.value === "night" }))}><option value="day">Day Shift</option><option value="night">Night Shift</option></select></div>
+            <div className="form-group"><label className="label">Joining Date</label><input className="input" type="date" value={editForm.joining_date || ""} onChange={(e) => setEditForm((f) => ({ ...f, joining_date: e.target.value }))} /></div>
+            <div className="form-group"><label className="label">Probation Period End Date</label><input className="input" type="date" min={editForm.joining_date || undefined} value={editForm.probation_end_date || ""} onChange={(e) => setEditForm((f) => ({ ...f, probation_end_date: e.target.value }))} /></div>
             {isAdmin && <div className="form-group"><label className="label">Base Salary (₹)</label><input className="input" type="number" min="0" max="10000000" placeholder="0 - 1,00,00,000" value={editForm.base_salary} onChange={(e) => setEditForm((f) => ({ ...f, base_salary: sanitizeNumericInput(e.target.value, true) }))} /></div>}
             <div className="form-group"><label className="label">Bank Account</label><input className="input" inputMode="numeric" placeholder="Account number (digits only)" value={editForm.bank_account} onChange={(e) => setEditForm((f) => ({ ...f, bank_account: e.target.value.replace(/[^0-9]/g, "") }))} /></div>
             <div className="form-group"><label className="label">IFSC Code</label><input className="input" maxLength={11} placeholder="e.g. HDFC0001234" value={editForm.ifsc_code} onChange={(e) => { setBankDetails(null); setEditForm((f) => ({ ...f, ifsc_code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })); }} onBlur={lookupIfsc} />{bankDetails ? <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}><strong style={{ color: "var(--text)" }}>{bankDetails.bank}</strong><br />{bankDetails.branch}{bankDetails.city ? ` · ${bankDetails.city}` : ""}{bankDetails.state ? ` · ${bankDetails.state}` : ""}</div> : null}</div>
