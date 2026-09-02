@@ -369,6 +369,13 @@ export default function StaffPage() {
       if (payload.department_id === undefined) delete payload.department_id;
       if (payload.base_salary === undefined) delete payload.base_salary;
       if (!payload.new_password) delete payload.new_password;
+      if (!isAdmin) {
+        delete payload.is_hr;
+        delete payload.is_accounts;
+        delete payload.is_hod;
+        delete payload.is_tl;
+        delete payload.base_salary;
+      }
 
       const result = await apiFetch(`/employees/${editModal.emp_id}`, {
         method: "PUT",
@@ -1306,8 +1313,8 @@ export default function StaffPage() {
         </Modal>
       )}
 
-      {/* ── Admin Edit Employee Modal ── */}
-      {editModal && isAdmin && (
+      {/* ── Edit Employee Modal ── */}
+      {editModal && canEditStaff && (
         <Modal className="modal-wide" title={`Edit: ${editModal.first_name} ${editModal.last_name} (${editModal.emp_id})`}
           onClose={() => {
             setEditModal(null);
@@ -1320,8 +1327,8 @@ export default function StaffPage() {
             }}>Cancel</button>
             <button className="btn-primary" onClick={updateEmployee}>Save Changes</button>
           </>}>
-          <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#fca5a5" }}>
-            ⚠️ Admin changes take effect immediately. Role changes will apply on the user&apos;s next login.
+          <div style={{ padding: "10px 14px", background: "rgba(99,102,241,0.08)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "var(--accent, #6366f1)" }}>
+            ℹ️ Employee changes take effect immediately.
           </div>
 
           <div className="form-row staff-form-grid">
@@ -1497,13 +1504,18 @@ export default function StaffPage() {
 
           <div style={{ height: 1, background: "var(--border)", margin: "20px 0" }} />
 
-          {!editModal.is_superuser ? <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 4, marginBottom: 12 }}>
+          {isAdmin && !editModal.is_superuser ? <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 4, marginBottom: 12 }}>
             <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_hr} onChange={(e) => setEditForm((f) => ({ ...f, is_hr: e.target.checked, is_accounts: false, is_hod: false, is_tl: false }))} /> HR Role</label>
             <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_accounts} onChange={(e) => setEditForm((f) => ({ ...f, is_accounts: e.target.checked, is_hr: false, is_hod: false, is_tl: false }))} /> Accounts</label>
             <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_hod} onChange={(e) => setEditForm((f) => ({ ...f, is_hod: e.target.checked, is_hr: false, is_accounts: false, is_tl: false, hod_department_ids: e.target.checked ? withPrimaryDepartment(f.hod_department_ids, parseDepartmentId(f.department_id)) : f.hod_department_ids }))} /> HOD</label>
             <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_tl} onChange={(e) => setEditForm((f) => ({ ...f, is_tl: e.target.checked, is_hr: false, is_accounts: false, is_hod: false }))} /> TL</label>
             <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_active} onChange={(e) => setEditForm((f) => ({ ...f, is_active: e.target.checked }))} /> Active</label>
           </div> : null}
+          {!isAdmin && (
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 4, marginBottom: 12 }}>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer", fontSize: 14 }}><input type="checkbox" checked={editForm.is_active} onChange={(e) => setEditForm((f) => ({ ...f, is_active: e.target.checked }))} /> Active</label>
+            </div>
+          )}
           {editForm.is_hod && (
             <div style={{ marginBottom: 16 }}>
               <div className="label" style={{ marginBottom: 6 }}>Managed Departments</div>

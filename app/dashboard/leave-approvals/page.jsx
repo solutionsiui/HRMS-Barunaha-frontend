@@ -248,9 +248,9 @@ export default function LeaveApprovalsPage() {
                   <div style={{ color: "var(--muted)", fontSize: 11 }}>{row.emp_id}</div>
                 </td>
                 <td>{row.department || "—"}</td>
-                <td><b>{row.casual.used} / {row.casual.total}</b> <span style={{ color: "var(--muted)", fontSize: 11, marginLeft: 4 }}>({row.casual.remaining} left)</span></td>
-                <td><b>{row.sick.used} / {row.sick.total}</b> <span style={{ color: "var(--muted)", fontSize: 11, marginLeft: 4 }}>({row.sick.remaining} left)</span></td>
-                <td><b>{row.privileged.used} / {row.privileged.total}</b> <span style={{ color: "var(--muted)", fontSize: 11, marginLeft: 4 }}>({row.privileged.remaining} left)</span></td>
+                <td><b>{row.casual.used} / {row.casual.total}</b></td>
+                <td><b>{row.sick.used} / {row.sick.total}</b></td>
+                <td><b>{row.privileged.used} / {row.privileged.total}</b></td>
                 {canEditLeaveQuotas ? <td><button className="btn-ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => openQuotaEditor(row)}>Edit Quotas</button></td> : null}
               </tr>)}
               {!loading && balances.length === 0 ? <tr><td colSpan={canEditLeaveQuotas ? 6 : 5} style={{ color: "var(--muted)" }}>No employee balances available.</td></tr> : null}
@@ -429,7 +429,7 @@ export default function LeaveApprovalsPage() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
                       <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                        Display: <b style={{ color: "var(--foreground)" }}>{taken} / {total}</b> ({left} left)
+                        Display: <b style={{ color: "var(--foreground)" }}>{taken} / {total}</b>
                       </span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
