@@ -75,6 +75,15 @@ export default function LeaveApprovalsPage() {
           pl_taken: takenVals[2],
         }),
       });
+      setBalances((prev) => prev.map((b) => {
+        if (b.emp_id !== quotaEditor.emp_id) return b;
+        return {
+          ...b,
+          casual: { ...b.casual, total: quotaVals[0], used: takenVals[0], remaining: Math.max(0, quotaVals[0] - takenVals[0]) },
+          sick: { ...b.sick, total: quotaVals[1], used: takenVals[1], remaining: Math.max(0, quotaVals[1] - takenVals[1]) },
+          privileged: { ...b.privileged, total: quotaVals[2], used: takenVals[2], remaining: Math.max(0, quotaVals[2] - takenVals[2]) },
+        };
+      }));
       showToast(`Leave quotas updated for ${quotaEditor.name || quotaEditor.emp_id}`);
       setQuotaEditor(null);
       await load();

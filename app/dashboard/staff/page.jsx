@@ -617,20 +617,24 @@ export default function StaffPage() {
   async function openQuotaEdit(emp) {
     setQuotaModal(emp);
     setQuotaForm({
-      remaining_cl: 10, remaining_sl: 12, remaining_pl: 15,
-      used_cl: 0, used_sl: 0, used_pl: 0,
+      cl_quota: String(emp.cl_quota ?? 10),
+      sl_quota: String(emp.sl_quota ?? 12),
+      pl_quota: String(emp.pl_quota ?? 15),
+      cl_taken: "0",
+      sl_taken: "0",
+      pl_taken: "0",
       loading: true,
     });
     try {
       const b = await apiFetch(`/leave/balance?emp_id=${emp.emp_id}`);
       if (b && b.annual_quotas) {
         setQuotaForm({
-          remaining_cl: b.annual_quotas.casual?.remaining ?? 10,
-          remaining_sl: b.annual_quotas.sick?.remaining ?? 12,
-          remaining_pl: b.annual_quotas.privileged?.remaining ?? 15,
-          used_cl: b.annual_quotas.casual?.used ?? 0,
-          used_sl: b.annual_quotas.sick?.used ?? 0,
-          used_pl: b.annual_quotas.privileged?.used ?? 0,
+          cl_quota: String(b.annual_quotas.casual?.total ?? emp.cl_quota ?? 10),
+          sl_quota: String(b.annual_quotas.sick?.total ?? emp.sl_quota ?? 12),
+          pl_quota: String(b.annual_quotas.privileged?.total ?? emp.pl_quota ?? 15),
+          cl_taken: String(b.annual_quotas.casual?.used ?? 0),
+          sl_taken: String(b.annual_quotas.sick?.used ?? 0),
+          pl_taken: String(b.annual_quotas.privileged?.used ?? 0),
           loading: false,
         });
       } else {
@@ -644,17 +648,26 @@ export default function StaffPage() {
   async function updateQuotas(e) {
     e.preventDefault();
     if (!quotaModal) return;
+    const quotaVals = [quotaForm.cl_quota, quotaForm.sl_quota, quotaForm.pl_quota].map(Number);
+    const takenVals = [quotaForm.cl_taken, quotaForm.sl_taken, quotaForm.pl_taken].map(Number);
+    if ([...quotaVals, ...takenVals].some((value) => !Number.isInteger(value) || value < 0)) {
+      showToast("Quotas and taken leaves must be whole numbers of zero or more", "error");
+      return;
+    }
     try {
       const payload = {
-        remaining_cl: quotaForm.remaining_cl !== "" && quotaForm.remaining_cl !== null ? Number(quotaForm.remaining_cl) : 0,
-        remaining_sl: quotaForm.remaining_sl !== "" && quotaForm.remaining_sl !== null ? Number(quotaForm.remaining_sl) : 0,
-        remaining_pl: quotaForm.remaining_pl !== "" && quotaForm.remaining_pl !== null ? Number(quotaForm.remaining_pl) : 0,
+        cl_quota: quotaVals[0],
+        sl_quota: quotaVals[1],
+        pl_quota: quotaVals[2],
+        cl_taken: takenVals[0],
+        sl_taken: takenVals[1],
+        pl_taken: takenVals[2],
       };
       const result = await apiFetch(`/leave/quota/${quotaModal.emp_id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
-      showToast(result?.message || "Remaining leave balances updated!");
+      showToast(result?.message || `Leave quotas updated for ${quotaModal.first_name} ${quotaModal.last_name}`);
       setQuotaModal(null);
       await load();
     } catch (err) {
@@ -1557,34 +1570,61 @@ export default function StaffPage() {
         </Modal>
       )}
 
-      {/* ── HR Edit Remaining Leaves Modal ── */}
+      {/* ── Edit Leave Quotas & Taken Count Modal ── */}
       {quotaModal && (
-        <Modal title={`Edit Remaining Leaves: ${quotaModal.first_name} ${quotaModal.last_name} (${quotaModal.emp_id})`}
+        <Modal title={`Edit Leave Quotas & Taken Count: ${quotaModal.first_name} ${quotaModal.last_name} (${quotaModal.emp_id})`}
           onClose={() => setQuotaModal(null)}
           footer={<>
             <button className="btn-ghost" onClick={() => setQuotaModal(null)}>Cancel</button>
-            <button className="btn-primary" onClick={updateQuotas} disabled={quotaForm.loading}>Save Remaining Leaves</button>
+            <button className="btn-primary" onClick={updateQuotas} disabled={quotaForm.loading}>Save Quotas</button>
           </>}>
-          <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.08)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#6ee7b7" }}>
-            🌴 Set the <strong>remaining leaves</strong> left for this employee. The total annual quota will automatically adjust based on approved leaves used this year.
-          </div>
           {quotaForm.loading ? <Loader /> : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16 }}>
-              <div className="form-group">
-                <label className="label">Remaining Casual Leaves (CL)</label>
-                <input className="input" type="number" min="0" value={quotaForm.remaining_cl} onChange={(e) => setQuotaForm((f) => ({ ...f, remaining_cl: e.target.value }))} />
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Used this year: {quotaForm.used_cl} days</div>
-              </div>
-              <div className="form-group">
-                <label className="label">Remaining Sick Leaves (SL)</label>
-                <input className="input" type="number" min="0" value={quotaForm.remaining_sl} onChange={(e) => setQuotaForm((f) => ({ ...f, remaining_sl: e.target.value }))} />
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Used this year: {quotaForm.used_sl} days</div>
-              </div>
-              <div className="form-group">
-                <label className="label">Remaining Privileged Leaves (PL)</label>
-                <input className="input" type="number" min="0" value={quotaForm.remaining_pl} onChange={(e) => setQuotaForm((f) => ({ ...f, remaining_pl: e.target.value }))} />
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Used this year: {quotaForm.used_pl} days</div>
-              </div>
+            <div style={{ display: "grid", gap: 14 }}>
+              {[
+                { label: "Casual Leave", qField: "cl_quota", tField: "cl_taken", defQ: 10 },
+                { label: "Sick Leave", qField: "sl_quota", tField: "sl_taken", defQ: 12 },
+                { label: "Privileged Leave", qField: "pl_quota", tField: "pl_taken", defQ: 15 },
+              ].map(({ label, qField, tField }) => {
+                const total = Number(quotaForm[qField]) || 0;
+                const taken = Number(quotaForm[tField]) || 0;
+                return (
+                  <div key={qField} className="card" style={{ padding: 14, background: "rgba(255,255,255,0.02)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{label}</span>
+                      <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                        Display: <b style={{ color: "var(--foreground)" }}>{taken} / {total}</b>
+                      </span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="label" style={{ fontSize: 11 }}>Total Quota</label>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={quotaForm[qField]}
+                          onChange={(event) => setQuotaForm((current) => ({ ...current, [qField]: event.target.value }))}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="label" style={{ fontSize: 11 }}>Taken Leaves</label>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={quotaForm[tField]}
+                          onChange={(event) => setQuotaForm((current) => ({ ...current, [tField]: event.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--muted)" }}>
+                Editing Taken Leaves increases used leaves (e.g. 4/10) without deducting total annual entitlement.
+              </p>
             </div>
           )}
         </Modal>
